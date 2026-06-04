@@ -1,16 +1,22 @@
+import { getServerSession } from 'next-auth';
 import { getTranslations } from 'next-intl/server';
+import { notFound } from 'next/navigation';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 export default async function StatisticsPage() {
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== 'ADMIN') notFound();
+
   const t = await getTranslations('statistics');
 
   const [userCount, feedCount, articleCount, bannedCount, topFeeds] =
     await Promise.all([
       prisma.user.count(),
-      prisma.feed.count(),
+      prisma.sourceFeed.count(),
       prisma.article.count(),
       prisma.user.count({ where: { banned: true } }),
-      prisma.feed.findMany({
+      prisma.sourceFeed.findMany({
         orderBy: { articles: { _count: 'desc' } },
         take: 10,
         include: { _count: { select: { articles: true } } },

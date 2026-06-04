@@ -19,6 +19,9 @@ model User {
   bannedReason String?
   createdAt    DateTime  @default(now())
   feeds        Feed[]
+  readArticles ArticleRead[]
+  resetTokens  PasswordResetToken[]
+  preferences  UserPreference?
 }
 
 model Setting {
@@ -33,11 +36,29 @@ model Feed {
   description String?
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceFeedId String?
+  sourceFeed  SourceFeed? @relation(fields: [sourceFeedId], references: [id], onDelete: Cascade)
   articles    Article[]
+  lastFetchedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([userId])
+  @@index([userId, createdAt])
+  @@index([sourceFeedId])
+  @@unique([userId, url])
+}
+
+model SourceFeed {
+  id          String    @id @default(cuid())
+  url         String    @unique
+  title       String?
+  description String?
+  lastFetchedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  subscriptions Feed[]
+  articles    Article[]
 }
 
 model Article {
@@ -46,13 +67,79 @@ model Article {
   link        String?
   description String?
   content     String?
+  imageUrl    String?
   pubDate     DateTime?
   guid        String?
-  feedId      String
-  feed        Feed      @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  feedId      String?
+  feed        Feed?     @relation(fields: [feedId], references: [id], onDelete: SetNull)
+  sourceFeedId String?
+  sourceFeed  SourceFeed? @relation(fields: [sourceFeedId], references: [id], onDelete: Cascade)
+  reads       ArticleRead[]
   createdAt   DateTime  @default(now())
 
   @@unique([feedId, guid])
+  @@unique([sourceFeedId, guid])
   @@index([pubDate])
+  @@index([createdAt])
   @@index([feedId])
+  @@index([feedId, pubDate])
+  @@index([sourceFeedId])
+  @@index([sourceFeedId, pubDate])
+}
+
+model ArticleRead {
+  userId    String
+  articleId String
+  readAt    DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, articleId])
+  @@index([articleId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model RateLimitEntry {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+}
+
+model UserPreference {
+  userId           String   @id
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme            String   @default("system")
+  design           String   @default("clean")
+  cardStyle        String   @default("magazine")
+  density          String   @default("comfortable")
+  fontScale        String   @default("medium")
+  accentColor      String   @default("blue")
+  showImages       Boolean  @default(true)
+  showSource       Boolean  @default(true)
+  showDate         Boolean  @default(true)
+  showDescription  Boolean  @default(true)
+  showReadMore     Boolean  @default(true)
+  descriptionLines Int      @default(2)
+  updatedAt        DateTime @updatedAt
+}
+
+model ImageCache {
+  sourceUrl   String   @id
+  contentType String
+  data        Bytes
+  fetchedAt   DateTime @default(now())
+
+  @@index([fetchedAt])
 }

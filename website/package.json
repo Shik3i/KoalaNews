@@ -15,8 +15,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
+    "cleanup": "node scripts/cleanup.mjs",
     "postinstall": "prisma generate",
     "prepare": "husky"
   },

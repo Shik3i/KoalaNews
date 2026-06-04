@@ -1,6 +1,13 @@
 import jwt from 'jsonwebtoken';
 
-const SECRET = process.env.NEXTAUTH_SECRET || 'fallback-secret-do-not-use-in-prod';
+function getJwtSecret(): string {
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('NEXTAUTH_SECRET is required in production');
+  }
+  return 'development-secret';
+}
 
 export type JwtPayload = {
   sub: string;
@@ -10,12 +17,12 @@ export type JwtPayload = {
 };
 
 export function signToken(userId: string, role: string): string {
-  return jwt.sign({ sub: userId, role }, SECRET, { expiresIn: '30d' });
+  return jwt.sign({ sub: userId, role }, getJwtSecret(), { expiresIn: '30d' });
 }
 
 export function verifyToken(token: string): JwtPayload | null {
   try {
-    const decoded = jwt.verify(token, SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, getJwtSecret()) as JwtPayload;
     return decoded;
   } catch {
     return null;

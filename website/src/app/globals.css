@@ -1,3 +1,56 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .article-card[data-design='newspaper'] {
+    border-color: #111827;
+    border-radius: 0;
+    background: #fff;
+    font-family: Georgia, Cambria, 'Times New Roman', Times, serif;
+  }
+
+  .article-card[data-design='terminal'] {
+    border-color: #14532d;
+    background: #020617;
+    color: #bbf7d0;
+  }
+
+  .article-card[data-design='terminal'] p,
+  .article-card[data-design='terminal'] div {
+    color: #86efac;
+  }
+
+  .article-card[data-design='soft'] {
+    border-color: #e5e7eb;
+    background: #f8fafc;
+    box-shadow: none;
+  }
+
+  .article-card[data-design='high-contrast'] {
+    border-width: 2px;
+    border-color: #000;
+    background: #fff;
+    color: #000;
+  }
+
+  .article-card[data-font-scale='small'] {
+    font-size: 0.9375rem;
+  }
+
+  .article-card[data-font-scale='large'] {
+    font-size: 1.0625rem;
+  }
+
+  .article-card[data-accent='green'] a {
+    color: #047857;
+  }
+
+  .article-card[data-accent='red'] a {
+    color: #b91c1c;
+  }
+
+  .article-card[data-accent='neutral'] a {
+    color: #374151;
+  }
+}

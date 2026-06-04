@@ -6,7 +6,8 @@
 cd website
 cp .env.example .env
 npm install
-npx prisma db push
+npx prisma migrate deploy
+npx prisma generate
 npm run dev
 ```
 
@@ -67,17 +68,22 @@ Beispiele: `feat: add feed refresh button`, `fix: handle empty RSS feeds`
 -   Server Components bevorzugen, Client Components nur wo nötig (`'use client'`).
 -   Props immer explizit typen, nie `any`.
 -   i18n Übersetzungen in `src/messages/{locale}.json` pflegen, nicht hardcoded.
+-   Keine clientseitigen Third-Party-Requests: keine externen CDNs, Google Fonts, Remote-Images, Tracking-Scripts, Widgets oder Font-/Icon-CDNs. Browser-Assets müssen lokal/self-hosted sein.
+-   Externe Links sind okay als Navigation zu Artikeln, aber keine eingebetteten externen Ressourcen im UI.
 
 ### API Routes
 
 -   Jede Route authentifizieren via `getServerSession(authOptions)`.
 -   Fehler mit eindeutigem HTTP-Status und JSON-Body zurückgeben.
+-   Externe Netzwerkzugriffe gehören nicht in den Client. RSS-Abrufe laufen ausschließlich serverseitig, SSRF-geschützt, rate-limited und idealerweise über einen kontrollierten Cronjob/Refresh-Prozess.
+-   Wiederkehrende Cleanup-Jobs laufen serverseitig über `npm run cleanup`; Retention wird über `KOALANEWS_RETENTION_DAYS` gesteuert.
 
 ### Datenbank
 
--   Schema-Änderungen via `npx prisma db push` testen.
--   Für Produktion mit `npx prisma migrate dev` arbeiten.
+-   Schema-Änderungen via Prisma-Migrationen einchecken; lokal mit `npx prisma migrate dev`, Produktion mit `npx prisma migrate deploy`.
 -   Keine rohen SQL-Queries – immer Prisma Client.
+-   RSS-Quellen werden als globale `SourceFeed`s dedupliziert; User-Feeds sind Subscriptions. Artikel hängen an `SourceFeed`, damit derselbe Feed nicht mehrfach gespeichert wird.
+-   RSS-Artikel und gecachte Bilder werden in SQLite gespeichert und per Retention-Cleanup gelöscht.
 
 ### Tests
 
@@ -96,6 +102,7 @@ Beispiele: `feat: add feed refresh button`, `fix: handle empty RSS feeds`
 -   Image läuft als `nextjs` User (non-root).
 -   SQLite unter `/data/koalanews.db` – via Volume persistieren.
 -   `NEXTAUTH_SECRET` und `DATABASE_URL` immer als Env-Vars setzen.
+-   `KOALANEWS_RETENTION_DAYS` dokumentiert setzen; Default ist `14`.
 
 ## CI/CD
 

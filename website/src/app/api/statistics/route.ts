@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/with-auth';
 
-export const dynamic = 'force-dynamic';
-
-export async function GET() {
+export const GET = requireAdmin(async () => {
   const [users, feeds, articles, bannedUsers] = await Promise.all([
     prisma.user.count(),
-    prisma.feed.count(),
+    prisma.sourceFeed.count(),
     prisma.article.count(),
     prisma.user.count({ where: { banned: true } }),
   ]);
 
-  const topFeeds = await prisma.feed.findMany({
+  const topFeeds = await prisma.sourceFeed.findMany({
     orderBy: { articles: { _count: 'desc' } },
     take: 10,
     include: { _count: { select: { articles: true } } },
@@ -28,4 +27,4 @@ export async function GET() {
       articleCount: f._count.articles,
     })),
   });
-}
+});

@@ -1,5 +1,5 @@
 const mockParseURL = vi.fn();
-mockParseURL.mockResolvedValue({
+const defaultFeed = {
   title: 'Test Feed',
   description: 'A test RSS feed',
   items: [
@@ -21,9 +21,12 @@ mockParseURL.mockResolvedValue({
       isoDate: '2024-01-16T12:00:00.000Z',
     },
   ],
-});
+};
+mockParseURL.mockResolvedValue(defaultFeed);
+const mockParseString = vi.fn();
+mockParseString.mockResolvedValue(defaultFeed);
 
-const mockInstance = { parseURL: mockParseURL };
+const mockInstance = { parseURL: mockParseURL, parseString: mockParseString };
 const parserMock = vi.fn(() => mockInstance);
 
 export default parserMock;

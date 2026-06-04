@@ -13,6 +13,8 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me-admin}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - KOALANEWS_RETENTION_DAYS=${KOALANEWS_RETENTION_DAYS:-14}
+      - KOALANEWS_CLEANUP_INTERVAL_HOURS=${KOALANEWS_CLEANUP_INTERVAL_HOURS:-24}
     volumes:
       - koalanews_data:/data
     restart: unless-stopped

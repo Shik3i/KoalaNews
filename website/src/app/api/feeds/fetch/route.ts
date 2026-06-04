@@ -1,30 +1,32 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { asTrimmedString, getClientIp, jsonError, readJsonObject } from '@/lib/api';
+import { runScheduledCleanup } from '@/lib/cleanup';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { refreshFeed } from '@/lib/rss';
+import { requireAuth } from '@/lib/with-auth';
 
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export const POST = requireAuth(async (request, userId) => {
+  if (!(await checkRateLimit(`feed-refresh:${userId}:${getClientIp(request)}`, 20, 60_000))) {
+    return jsonError('too_many_requests', 429);
   }
 
   try {
-    const { feedId } = await request.json();
-
+    const body = await readJsonObject(request);
+    const feedId = asTrimmedString(body?.feedId, 128);
     if (!feedId) {
-      return NextResponse.json({ error: 'feedId required' }, { status: 400 });
+      return jsonError('feed_id_required', 400);
     }
 
     const feed = await prisma.feed.findUnique({ where: { id: feedId } });
-    if (!feed || feed.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (!feed || feed.userId !== userId) {
+      return jsonError('not_found', 404);
     }
 
     await refreshFeed(feedId);
+    runScheduledCleanup().catch(() => null);
     return NextResponse.json({ ok: true });
   } catch {
-    return NextResponse.json({ error: 'Could not refresh feed' }, { status: 422 });
+    return jsonError('could_not_refresh_feed', 422);
   }
-}
+});

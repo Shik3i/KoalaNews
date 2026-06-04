@@ -1,26 +1,23 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { jsonError } from '@/lib/api';
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/with-auth';
 
-export async function DELETE(
+export const DELETE = requireAuth(async (
   _request: Request,
+  userId,
+  _role,
   { params }: { params: { id: string } }
-) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+) => {
   const feed = await prisma.feed.findUnique({
     where: { id: params.id },
   });
 
-  if (!feed || feed.userId !== session.user.id) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (!feed || feed.userId !== userId) {
+    return jsonError('not_found', 404);
   }
 
   await prisma.feed.delete({ where: { id: params.id } });
 
   return NextResponse.json({ ok: true });
-}
+});

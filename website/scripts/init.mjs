@@ -4,7 +4,12 @@ import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-async function getOrCreatePepper(): Promise<string> {
+function maskEmail(email) {
+  const [name, domain] = email.split('@');
+  return `${name.slice(0, 2)}***@${domain ?? 'unknown'}`;
+}
+
+async function getOrCreatePepper() {
   const existing = await prisma.setting.findUnique({ where: { key: 'pepper' } });
   if (existing) return existing.value;
 
@@ -29,17 +34,18 @@ async function main() {
     } else {
       const existingUser = await prisma.user.findUnique({ where: { email: adminEmail } });
       if (existingUser) {
+        const hashed = existingUser.password ? undefined : await hash(adminPassword + pepper, 12);
         await prisma.user.update({
           where: { id: existingUser.id },
-          data: { role: 'ADMIN' },
+          data: { role: 'ADMIN', password: hashed },
         });
-        console.log('[init] Existing user promoted to admin:', adminEmail);
+        console.log('[init] Existing user promoted to admin:', maskEmail(adminEmail));
       } else {
         const hashed = await hash(adminPassword + pepper, 12);
         await prisma.user.create({
           data: { email: adminEmail, password: hashed, name: 'Admin', role: 'ADMIN' },
         });
-        console.log('[init] Admin account created:', adminEmail);
+        console.log('[init] Admin account created:', maskEmail(adminEmail));
       }
     }
   }

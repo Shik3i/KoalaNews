@@ -10,9 +10,9 @@ Dieses Dokument hält die grundlegenden Architektur- und Designentscheidungen fe
 |---|---|
 | **Next.js 14 (App Router)** | Fullstack-Framework: SSR, API-Routes, i18n, Routing aus einer Hand. Kein separater Backend-Server nötig. |
 | **Tailwind CSS** | Utility-First, keine CSS-Dateien, konsistentes Design über alle Komponenten. |
-| **SQLite (via Prisma)** | Zero-Admin-Datenbank. Ein Container, ein Prozess, keine externen Dienste. Perfekt für Einzel-Nutzer bis mittlere Instanzen. Migration zu PostgreSQL jederzeit möglich (Prisma-Datasource-Wechsel). |
+| **SQLite (via Prisma)** | Zero-Admin-Datenbank. Ein Container, ein Prozess, keine externen Dienste. RSS-Artikel, Preferences, Rate Limits und gecachte Bilder liegen lokal. Migration zu PostgreSQL jederzeit möglich (Prisma-Datasource-Wechsel). |
 | **Prisma** | Typensicherer Datenbankzugriff, auto-generierter Client, einfache Migrations. Wechsel zu PostgreSQL = eine Zeile in `schema.prisma`. |
-| **NextAuth.js (Credentials)** | Einfach, passwortbasiert, JWT-Sessions. Reicht für MVP, erweiterbar um OAuth (Google, GitHub). |
+| **NextAuth.js (Credentials)** | Einfach, passwortbasiert, JWT-Sessions. OAuth ist optional und wird nur aktiviert, wenn die Credentials vorhanden sind. |
 | **next-intl** | Einzige i18n-Lösung die nativ mit Next.js App Router funktioniert. Typesafe, lazy-loaded, einfach erweiterbar. |
 | **rss-parser** | Leichtgewichtig, unterstützt RSS 2.0 + Atom, bewährt. |
 | **Vitest + RTL** | Schnell (esbuild), nativer ESM-Support, React Testing Library für Komponententests. |
@@ -39,16 +39,34 @@ Dieses Dokument hält die grundlegenden Architektur- und Designentscheidungen fe
 
 ### 2.4 API Auth First – Default Deny
 
-- Jede API-Route, die auf Nutzerdaten zugreift, beginnt mit `getServerSession(authOptions)`.
+- Jede API-Route, die auf Nutzerdaten zugreift, nutzt den gemeinsamen Auth-Wrapper (`requireAuth`/`requireAdmin`) oder eine gleichwertige serverseitige Prüfung.
 - Fehler werden mit eindeutigem HTTP-Statuscode und JSON-Body zurückgegeben.
 - Keine sensiblen Daten in Fehlermeldungen.
 
-### 2.5 Datenbank-Portabilität
+### 2.5 Privacy & Local-Only Client Assets
+
+- **Keine externen CDNs oder Third-Party-Assets im Client.** Keine Google Fonts, keine externen Script-/Style-/Image-CDNs, keine Tracking-Pixel, keine externen Avatar-/Profilbild-URLs, keine eingebetteten Third-Party-Widgets.
+- Alles, was der Browser lädt, kommt von der eigenen App-Origin: Fonts, CSS, JS, Bilder, Icons und sonstige Assets liegen lokal im Repository, in `public/` oder werden über eigene App-Routen ausgeliefert.
+- `next/font/google`, `@import url(...)`, `<script src="https://...">`, `<link href="https://...">`, externe `img`/`Image`-Quellen und Remote-Image-Domains sind verboten.
+- Die CSP muss diesen Anspruch widerspiegeln: `default-src 'self'`, `connect-src 'self'`, `font-src 'self'`, `img-src 'self' data: blob:`; neue Ausnahmen brauchen eine dokumentierte Architekturentscheidung.
+- Die einzigen regulären Verbindungen nach außen sind serverseitig: die App-API zur eigenen Origin und der RSS-Fetcher/Cronjob, der Feeds in einem kontrollierten Intervall abruft. RSS-Fetching bleibt serverseitig, SSRF-geschützt und rate-limited.
+- OAuth, Analytics, Captchas, externe Medien-Proxies oder sonstige Third-Party-Integrationen sind keine Default-Option. Wenn sie jemals nötig werden, brauchen sie vorab eine Privacy-/Security-Entscheidung und dürfen nicht heimlich clientseitige Drittanbieter-Requests einführen.
+
+### 2.6 Feed- und Cache-Modell
+
+- `SourceFeed` ist die globale, deduplizierte RSS-Quelle. Die URL ist eindeutig.
+- `Feed` ist die User-Subscription auf eine `SourceFeed`; mehrere User koennen dieselbe Quelle abonnieren, ohne Artikel zu duplizieren.
+- `Article` haengt an `SourceFeed`. Artikel-Dedupe laeuft ueber `(sourceFeedId, guid)`.
+- RSS-Artikel und gecachte Bilder (`ImageCache`) werden in SQLite gespeichert. Die UI liest aus der Datenbank bzw. aus der eigenen App-Origin.
+- Alte Artikel und Bilder werden durch Auto-Cleanup und `npm run cleanup` geloescht. `KOALANEWS_RETENTION_DAYS` steuert die Retention, Default ist `14`; `KOALANEWS_CLEANUP_INTERVAL_HOURS` steuert den Mindestabstand automatischer Cleanup-Läufe, Default ist `24`.
+
+### 2.7 Datenbank-Portabilität
 
 - Kein SQLite-spezifisches SQL – immer Prisma Client.
 - `skipDuplicates` wird nicht verwendet (SQLite-Unterstützung erst ab neueren Prisma-Versionen).
 - Stattdessen: GUID-basierte Duplikatsprüfung in der Applikationsschicht.
 - Schema-Änderungen via `prisma migrate dev` (nicht `db push`) für Produktion.
+- Public-Deployments laufen hinter Caddy oder einem vergleichbaren TLS Reverse Proxy; `NEXTAUTH_URL` muss die öffentliche HTTPS-Origin sein und die App darf nicht parallel ungefiltert ins Internet exponiert werden.
 
 ## 3. Projektstruktur
 

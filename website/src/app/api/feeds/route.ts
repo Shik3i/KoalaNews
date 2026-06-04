@@ -1,45 +1,71 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { asBoundedInt, asTrimmedString, getClientIp, jsonError, readJsonObject } from '@/lib/api';
+import { runScheduledCleanup } from '@/lib/cleanup';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { saveFeed } from '@/lib/rss';
+import { requireAuth } from '@/lib/with-auth';
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+export const GET = requireAuth(async (request, userId) => {
+  const { searchParams } = new URL(request.url);
+  const cursor = searchParams.get('cursor') ?? undefined;
+  const take = asBoundedInt(searchParams.get('take'), 25, 1, 50);
 
   const feeds = await prisma.feed.findMany({
-    where: { userId: session.user.id },
+    where: { userId },
     include: {
-      articles: {
-        orderBy: { pubDate: 'desc' },
-        take: 20,
+      sourceFeed: {
+        include: {
+          articles: {
+            orderBy: { pubDate: 'desc' },
+            take: 20,
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              link: true,
+              imageUrl: true,
+              pubDate: true,
+            },
+          },
+        },
       },
     },
     orderBy: { createdAt: 'desc' },
+    take: take + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
-  return NextResponse.json(feeds);
-}
+  return NextResponse.json({
+    items: feeds.slice(0, take).map((feed) => ({
+      ...feed,
+      title: feed.sourceFeed?.title ?? feed.title,
+      description: feed.sourceFeed?.description ?? feed.description,
+      articles: feed.sourceFeed?.articles ?? [],
+    })),
+    nextCursor: feeds.length > take ? feeds[take].id : null,
+  });
+});
 
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export const POST = requireAuth(async (request, userId) => {
+  if (!(await checkRateLimit(`feed-create:${userId}:${getClientIp(request)}`, 10, 60_000))) {
+    return jsonError('too_many_requests', 429);
   }
 
   try {
-    const { url } = await request.json();
-
+    const body = await readJsonObject(request);
+    const url = asTrimmedString(body?.url, 2048);
     if (!url) {
-      return NextResponse.json({ error: 'URL required' }, { status: 400 });
+      return jsonError('invalid_url', 400);
     }
 
-    const feed = await saveFeed(session.user.id, url);
+    const feed = await saveFeed(userId, url);
+    runScheduledCleanup().catch(() => null);
     return NextResponse.json(feed, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: 'Could not fetch feed' }, { status: 422 });
+  } catch (error) {
+    if ((error as { code?: string }).code === 'P2002') {
+      return jsonError('feed_exists', 409);
+    }
+    return jsonError('could_not_fetch_feed', 422);
   }
-}
+});

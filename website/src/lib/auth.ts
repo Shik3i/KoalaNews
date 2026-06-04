@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import { compare } from 'bcryptjs';
 import { prisma } from './prisma';
+import { checkRateLimit } from './rate-limit';
 
 declare module 'next-auth' {
   // eslint-disable-next-line no-unused-vars
@@ -22,47 +23,78 @@ let pepperCache: string | null = null;
 export async function getPepper(): Promise<string> {
   if (pepperCache) return pepperCache;
   const setting = await prisma.setting.findUnique({ where: { key: 'pepper' } });
-  pepperCache = setting?.value || '';
+  if (!setting?.value) {
+    throw new Error('Password pepper is missing. Run scripts/init.mjs before accepting logins.');
+  }
+  pepperCache = setting.value;
   return pepperCache;
 }
 
-export function pepperPassword(password: string, pepper?: string): string {
+export function pepperPassword(password: string, pepper: string): string {
   return password + pepper;
 }
 
-async function findOrCreateOAuthUser(profile: { email: string; name?: string | null; image?: string | null }) {
-  let user = await prisma.user.findUnique({ where: { email: profile.email } });
-
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        email: profile.email,
-        name: profile.name || profile.email.split('@')[0],
-        image: profile.image,
-      },
-    });
+function getAuthorizeIp(request: unknown): string {
+  const headers = (request as { headers?: unknown })?.headers;
+  if (headers && typeof (headers as Headers).get === 'function') {
+    return (
+      (headers as Headers).get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      (headers as Headers).get('x-real-ip')?.trim() ||
+      'unknown'
+    );
   }
-
-  return user;
+  if (headers && typeof headers === 'object') {
+    const record = headers as Record<string, string | string[] | undefined>;
+    const forwarded = record['x-forwarded-for'];
+    const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+    return value?.split(',')[0]?.trim() || 'unknown';
+  }
+  return 'unknown';
 }
+
+async function findOrCreateOAuthUser(profile: { email: string; name?: string | null; image?: string | null }) {
+  return prisma.user.upsert({
+    where: { email: profile.email },
+    create: {
+      email: profile.email,
+      name: profile.name || profile.email.split('@')[0],
+      image: profile.image,
+    },
+    update: {
+      name: profile.name ?? undefined,
+      image: profile.image ?? undefined,
+    },
+  });
+}
+
+export const isGoogleOAuthConfigured =
+  Boolean(process.env.GOOGLE_CLIENT_ID) && Boolean(process.env.GOOGLE_CLIENT_SECRET);
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-    }),
+    ...(isGoogleOAuthConfigured
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+          }),
+        ]
+      : []),
     CredentialsProvider({
       name: 'credentials',
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null;
+        if (!(await checkRateLimit(`login:${getAuthorizeIp(request)}`, 10, 60_000))) return null;
+        if (!(await checkRateLimit(`login-email:${credentials.email.toLowerCase()}`, 20, 15 * 60_000))) {
+          return null;
+        }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: credentials.email.trim().toLowerCase() },
         });
         if (!user) return null;
         if (user.banned) return null;
@@ -92,29 +124,30 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === 'google') {
         if (!profile?.email) return false;
         const user = await findOrCreateOAuthUser({
-          email: profile.email,
+          email: profile.email.trim().toLowerCase(),
           name: profile.name,
           image: (profile as any).picture,
         });
         if (user.banned) return false;
+        (profile as any).dbUser = user;
       }
       return true;
     },
     async jwt({ token, user, account }) {
-      if (user) {
-        token.id = user.id;
-        token.role = (user as any).role;
-      } else if (account?.provider === 'google' && token.email) {
+      if (account?.provider === 'google' && token.email) {
         const dbUser = await prisma.user.findUnique({ where: { email: token.email } });
-        if (dbUser) {
+        if (dbUser && !dbUser.banned) {
           token.id = dbUser.id;
           token.role = dbUser.role;
         }
+      } else if (user) {
+        token.id = user.id;
+        token.role = (user as any).role;
       }
       return token;
     },
     async session({ session, token }) {
-      if (token && session.user) {
+      if (token?.id && token?.role && session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
       }

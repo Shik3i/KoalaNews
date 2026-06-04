@@ -1,42 +1,53 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { asBoolean, asOptionalTrimmedString, jsonError, readJsonObject } from '@/lib/api';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/with-auth';
 
-export async function PATCH(
+export const PATCH = requireAdmin(async (
   request: Request,
+  actingUserId,
+  _role,
   { params }: { params: { id: string } },
-) {
-  const session = await getServerSession(authOptions);
-  if (session?.user?.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+) => {
+  const body = await readJsonObject(request);
+  if (!body) return jsonError('invalid_body', 400);
 
-  const body = await request.json();
   const targetUser = await prisma.user.findUnique({ where: { id: params.id } });
   if (!targetUser) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return jsonError('not_found', 404);
   }
 
-  if (targetUser.role === 'ADMIN' && body.role !== 'ADMIN') {
+  const requestedRole = body.role === undefined ? undefined : asOptionalTrimmedString(body.role, 20);
+  if (requestedRole !== undefined && requestedRole !== null && !['ADMIN', 'USER'].includes(requestedRole)) {
+    return jsonError('invalid_role', 400);
+  }
+
+  const requestedBan = body.banned === undefined ? undefined : asBoolean(body.banned);
+  if (requestedBan === null) return jsonError('invalid_banned', 400);
+
+  if (targetUser.id === actingUserId && (requestedBan === true || requestedRole === 'USER')) {
+    return jsonError('cannot_change_self', 400);
+  }
+
+  if (targetUser.role === 'ADMIN' && requestedRole === 'USER') {
     const adminCount = await prisma.user.count({ where: { role: 'ADMIN' } });
     if (adminCount <= 1) {
       return NextResponse.json(
-        { error: 'Cannot remove last admin' },
+        { error: 'cannot_remove_last_admin' },
         { status: 400 },
       );
     }
   }
 
   const data: Record<string, unknown> = {};
-  if (body.role) data.role = body.role;
-  if (body.banned !== undefined) {
-    data.banned = body.banned;
-    data.bannedAt = body.banned ? new Date() : null;
-    data.bannedReason = body.banned ? (body.reason ?? null) : null;
+  if (requestedRole) data.role = requestedRole;
+  if (requestedBan !== undefined) {
+    data.banned = requestedBan;
+    data.bannedAt = requestedBan ? new Date() : null;
+    data.bannedReason = requestedBan ? asOptionalTrimmedString(body.reason, 500) : null;
   }
 
   await prisma.user.update({ where: { id: params.id }, data });
 
   return NextResponse.json({ ok: true });
-}
+});

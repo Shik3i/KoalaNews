@@ -1,15 +1,27 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { asBoundedInt } from '@/lib/api';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/with-auth';
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (session?.user?.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+export const GET = requireAdmin(async (request) => {
+  const { searchParams } = new URL(request.url);
+  const cursor = searchParams.get('cursor') ?? undefined;
+  const q = searchParams.get('q')?.trim();
+  const role = searchParams.get('role');
+  const take = asBoundedInt(searchParams.get('take'), 25, 1, 100);
 
   const users = await prisma.user.findMany({
+    where: {
+      ...(q
+        ? {
+            OR: [
+              { email: { contains: q } },
+              { name: { contains: q } },
+            ],
+          }
+        : {}),
+      ...(role === 'ADMIN' || role === 'USER' ? { role } : {}),
+    },
     orderBy: { createdAt: 'desc' },
     select: {
       id: true,
@@ -22,7 +34,12 @@ export async function GET() {
       createdAt: true,
       _count: { select: { feeds: true } },
     },
+    take: take + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
-  return NextResponse.json(users);
-}
+  return NextResponse.json({
+    items: users.slice(0, take),
+    nextCursor: users.length > take ? users[take].id : null,
+  });
+});

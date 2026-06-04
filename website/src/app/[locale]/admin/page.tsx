@@ -25,6 +25,10 @@ export default function AdminPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login');
@@ -38,19 +42,54 @@ export default function AdminPage() {
       fetchUsers();
       fetchSettings();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session]);
 
   async function fetchUsers() {
-    const res = await fetch('/api/admin/users');
-    if (res.ok) setUsers(await res.json());
+    setLoading(true);
+    const params = new URLSearchParams({ take: '25' });
+    if (query.trim()) params.set('q', query.trim());
+    if (roleFilter) params.set('role', roleFilter);
+    const res = await fetch(`/api/admin/users?${params}`);
+    if (res.ok) {
+      const data = await res.json();
+      setUsers(data.items ?? []);
+      setNextCursor(data.nextCursor ?? null);
+    } else {
+      setError(t('loadError'));
+    }
+    setLoading(false);
+  }
+
+  async function loadMoreUsers() {
+    if (!nextCursor) return;
+    setLoading(true);
+    const params = new URLSearchParams({ take: '25', cursor: nextCursor });
+    if (query.trim()) params.set('q', query.trim());
+    if (roleFilter) params.set('role', roleFilter);
+    const res = await fetch(`/api/admin/users?${params}`);
+    if (res.ok) {
+      const data = await res.json();
+      setUsers((current) => [...current, ...(data.items ?? [])]);
+      setNextCursor(data.nextCursor ?? null);
+    } else {
+      setError(t('loadError'));
+    }
+    setLoading(false);
   }
 
   async function fetchSettings() {
     const res = await fetch('/api/admin/settings');
     if (res.ok) setSettings(await res.json());
+    else setError(t('loadError'));
   }
 
   async function toggleBan(user: AdminUser) {
+    if (user.id === session?.user?.id) {
+      setError(t('cannotChangeSelf'));
+      return;
+    }
+    if (!window.confirm(user.banned ? t('confirmUnban') : t('confirmBan'))) return;
     setMessage('');
     setError('');
     const res = await fetch(`/api/admin/users/${user.id}`, {
@@ -62,12 +101,15 @@ export default function AdminPage() {
       setMessage(user.banned ? 'Unbanned' : 'Banned');
       await fetchUsers();
     } else {
-      const data = await res.json();
+      const data = await safeJson(res);
       setError(data.error ?? 'Error');
     }
   }
 
   async function toggleRole(user: AdminUser) {
+    if (!window.confirm(user.role === 'ADMIN' ? t('confirmRemoveAdmin') : t('confirmMakeAdmin'))) {
+      return;
+    }
     setMessage('');
     setError('');
     const newRole = user.role === 'ADMIN' ? 'USER' : 'ADMIN';
@@ -80,8 +122,8 @@ export default function AdminPage() {
       setMessage(user.role === 'ADMIN' ? t('removeAdmin') : t('makeAdmin'));
       await fetchUsers();
     } else {
-      const err = await res.json();
-      setError(err.error === 'Cannot remove last admin' ? t('cannotRemoveLastAdmin') : 'Error');
+      const err = await safeJson(res);
+      setError(err.error === 'cannot_remove_last_admin' ? t('cannotRemoveLastAdmin') : t('actionError'));
     }
   }
 
@@ -97,6 +139,16 @@ export default function AdminPage() {
     if (res.ok) {
       setSettings((s) => ({ ...s, allow_registration: newValue }));
       setMessage(t('saved'));
+    } else {
+      setError(t('actionError'));
+    }
+  }
+
+  async function safeJson(res: Response) {
+    try {
+      return await res.json();
+    } catch {
+      return {};
     }
   }
 
@@ -137,7 +189,40 @@ export default function AdminPage() {
       <section>
         <h2 className="text-lg font-semibold mb-3">{t('userManagement')}</h2>
 
-        {users.length === 0 ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            fetchUsers();
+          }}
+          className="flex flex-col sm:flex-row gap-2 mb-4"
+        >
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('searchUsers')}
+            className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">{t('allRoles')}</option>
+            <option value="ADMIN">ADMIN</option>
+            <option value="USER">USER</option>
+          </select>
+          <button className="bg-blue-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-blue-700">
+            {t('search')}
+          </button>
+        </form>
+
+        {loading && users.length === 0 ? (
+          <div className="space-y-2">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="h-12 bg-gray-100 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : users.length === 0 ? (
           <p className="text-gray-400 text-sm">{t('noUsers')}</p>
         ) : (
           <div className="overflow-x-auto">
@@ -182,6 +267,7 @@ export default function AdminPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => toggleBan(user)}
+                          disabled={user.id === session?.user?.id}
                           className={`text-xs ${user.banned ? 'text-green-600 hover:text-green-800' : 'text-red-600 hover:text-red-800'}`}
                         >
                           {user.banned ? t('unban') : t('ban')}
@@ -199,8 +285,17 @@ export default function AdminPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+              </table>
+              {nextCursor && (
+                <button
+                  onClick={loadMoreUsers}
+                  disabled={loading}
+                  className="w-full border border-gray-200 rounded px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 mt-3"
+                >
+                  {loading ? t('loadingMore') : t('loadMore')}
+                </button>
+              )}
+            </div>
         )}
       </section>
     </div>

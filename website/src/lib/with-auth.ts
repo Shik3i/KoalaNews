@@ -1,28 +1,55 @@
 /* eslint-disable no-unused-vars */
+import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
+import { authOptions } from '@/lib/auth';
+import { isSafeSameOriginRequest } from '@/lib/api';
 import { verifyToken } from '@/lib/jwt';
+import { prisma } from '@/lib/prisma';
 
 type Handler = (
   request: Request,
   userId: string,
   role: string,
+  ...args: any[]
 ) => Promise<Response>;
 
-export function requireAuth(handler: Handler) {
-  return async (request: Request) => {
-    const auth = request.headers.get('authorization');
-    const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+async function getCurrentUser(request: Request) {
+  const auth = request.headers.get('authorization');
+  const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
 
-    if (!token) {
+  if (token) {
+    const payload = verifyToken(token);
+    if (!payload) return null;
+
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, role: true, banned: true },
+    });
+    if (!user || user.banned) return null;
+    return user;
+  }
+
+  if (!isSafeSameOriginRequest(request)) return null;
+
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, role: true, banned: true },
+  });
+  if (!user || user.banned) return null;
+  return user;
+}
+
+export function requireAuth(handler: Handler) {
+  return async (request: Request, ...args: any[]) => {
+    const user = await getCurrentUser(request);
+    if (!user) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
-    }
-
-    return handler(request, payload.sub, payload.role);
+    return handler(request, user.id, user.role, ...args);
   };
 }
 

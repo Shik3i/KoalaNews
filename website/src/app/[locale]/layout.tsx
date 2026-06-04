@@ -6,8 +6,6 @@ import Providers from '@/components/Providers';
 import NavBar from '@/components/NavBar';
 import '../globals.css';
 
-export const dynamic = 'force-dynamic';
-
 export default async function LocaleLayout({
   children,
   params: { locale },
@@ -21,7 +19,7 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale}>
-      <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
+      <body className="min-h-screen bg-gray-50 text-gray-900 antialiased dark:bg-gray-900 dark:text-gray-100">
         <NextIntlClientProvider messages={messages}>
           <Providers>
             <NavBar />

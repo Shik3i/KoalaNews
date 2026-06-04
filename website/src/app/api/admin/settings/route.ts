@@ -1,35 +1,37 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { jsonError, readJsonObject } from '@/lib/api';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/with-auth';
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (session?.user?.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+const EDITABLE_SETTINGS = {
+  allow_registration: ['true', 'false'],
+} as const;
 
-  const settings = await prisma.setting.findMany();
+export const GET = requireAdmin(async () => {
+  const settings = await prisma.setting.findMany({
+    where: { key: { in: Object.keys(EDITABLE_SETTINGS) } },
+  });
   const obj: Record<string, string> = {};
   for (const s of settings) obj[s.key] = s.value;
   return NextResponse.json(obj);
-}
+});
 
-export async function PUT(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (session?.user?.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const body = await request.json();
+export const PUT = requireAdmin(async (request) => {
+  const body = await readJsonObject(request);
+  if (!body) return jsonError('invalid_body', 400);
 
   for (const [key, value] of Object.entries(body)) {
+    const allowedValues = EDITABLE_SETTINGS[key as keyof typeof EDITABLE_SETTINGS];
+    if (!allowedValues || typeof value !== 'string' || !(allowedValues as readonly string[]).includes(value)) {
+      return jsonError('invalid_setting', 400);
+    }
+
     await prisma.setting.upsert({
       where: { key },
-      create: { key, value: String(value) },
-      update: { value: String(value) },
+      create: { key, value },
+      update: { value },
     });
   }
 
   return NextResponse.json({ ok: true });
-}
+});

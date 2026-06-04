@@ -1,19 +1,24 @@
-const rateMap = new Map<string, { count: number; resetAt: number }>();
+import { prisma } from './prisma';
 
-// Cleanup stale entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  rateMap.forEach((entry, key) => {
-    if (now > entry.resetAt) rateMap.delete(key);
-  });
-}, 300_000);
+let lastCleanup = 0;
 
-export function checkRateLimit(key: string, max: number, windowMs: number): boolean {
-  const now = Date.now();
-  const entry = rateMap.get(key);
+export async function checkRateLimit(key: string, max: number, windowMs: number): Promise<boolean> {
+  const now = new Date();
+  const resetAt = new Date(now.getTime() + windowMs);
 
-  if (!entry || now > entry.resetAt) {
-    rateMap.set(key, { count: 1, resetAt: now + windowMs });
+  if (Date.now() - lastCleanup > 300_000) {
+    lastCleanup = Date.now();
+    await prisma.rateLimitEntry.deleteMany({ where: { resetAt: { lt: now } } });
+  }
+
+  const entry = await prisma.rateLimitEntry.findUnique({ where: { key } });
+
+  if (!entry || entry.resetAt < now) {
+    await prisma.rateLimitEntry.upsert({
+      where: { key },
+      create: { key, count: 1, resetAt },
+      update: { count: 1, resetAt },
+    });
     return true;
   }
 
@@ -21,6 +26,9 @@ export function checkRateLimit(key: string, max: number, windowMs: number): bool
     return false;
   }
 
-  entry.count++;
+  await prisma.rateLimitEntry.update({
+    where: { key },
+    data: { count: { increment: 1 } },
+  });
   return true;
 }

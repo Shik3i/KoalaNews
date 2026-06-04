@@ -3,9 +3,10 @@
 import { useSession } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
 import { useLocale } from 'next-intl';
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import ArticleCard from '@/components/ArticleCard';
+import { DEFAULT_APPEARANCE, type AppearanceSettings } from '@/lib/appearance';
 
 type Feed = {
   id: string;
@@ -20,6 +21,7 @@ type Article = {
   title: string | null;
   description: string | null;
   link: string | null;
+  imageUrl: string | null;
   pubDate: string | null;
 };
 
@@ -31,8 +33,12 @@ export default function DashboardPage() {
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [feedUrl, setFeedUrl] = useState('');
   const [adding, setAdding] = useState(false);
+  const [loadingFeeds, setLoadingFeeds] = useState(false);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [appearance, setAppearance] = useState<AppearanceSettings>(DEFAULT_APPEARANCE);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -40,24 +46,51 @@ export default function DashboardPage() {
     }
   }, [status, router]);
 
+  const fetchFeeds = useCallback(async () => {
+    setLoadingFeeds(true);
+    setError('');
+    const res = await fetch('/api/feeds?take=25');
+    if (!res.ok) {
+      setError(t('loadError'));
+      setLoadingFeeds(false);
+      return;
+    }
+    const data = await res.json();
+    setFeeds(data.items ?? []);
+    setNextCursor(data.nextCursor ?? null);
+    setLoadingFeeds(false);
+  }, [t]);
+
   useEffect(() => {
     if (status === 'authenticated') {
       fetchFeeds();
+      fetch('/api/preferences')
+        .then((res) => (res.ok ? res.json() : DEFAULT_APPEARANCE))
+        .then((data) => setAppearance({ ...DEFAULT_APPEARANCE, ...data }))
+        .catch(() => setAppearance(DEFAULT_APPEARANCE));
     }
-  }, [status]);
+  }, [status, fetchFeeds]);
 
-  async function fetchFeeds() {
-    const res = await fetch('/api/feeds');
-    if (res.ok) {
-      const data = await res.json();
-      setFeeds(data);
+  async function loadMoreFeeds() {
+    if (!nextCursor) return;
+    setLoadingFeeds(true);
+    const res = await fetch(`/api/feeds?take=25&cursor=${encodeURIComponent(nextCursor)}`);
+    if (!res.ok) {
+      setError(t('loadError'));
+      setLoadingFeeds(false);
+      return;
     }
+    const data = await res.json();
+    setFeeds((current) => [...current, ...(data.items ?? [])]);
+    setNextCursor(data.nextCursor ?? null);
+    setLoadingFeeds(false);
   }
 
   async function addFeed(e: React.FormEvent) {
     e.preventDefault();
     setAdding(true);
     setError('');
+    setMessage('');
 
     const res = await fetch('/api/feeds', {
       method: 'POST',
@@ -67,9 +100,10 @@ export default function DashboardPage() {
 
     if (res.ok) {
       setFeedUrl('');
+      setMessage(t('feedAdded'));
       await fetchFeeds();
     } else {
-      const data = await res.json();
+      const data = await safeJson(res);
       setError(data.error ?? t('fetchError'));
     }
 
@@ -77,19 +111,53 @@ export default function DashboardPage() {
   }
 
   async function removeFeed(id: string) {
-    await fetch(`/api/feeds/${id}`, { method: 'DELETE' });
-    await fetchFeeds();
+    if (!window.confirm(t('confirmRemove'))) return;
+    setError('');
+    setMessage('');
+    const res = await fetch(`/api/feeds/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setMessage(t('feedRemoved'));
+      await fetchFeeds();
+    } else {
+      setError(t('removeError'));
+    }
   }
 
   async function refreshFeed(id: string) {
     setRefreshingId(id);
-    await fetch('/api/feeds/fetch', {
+    setError('');
+    setMessage('');
+    const res = await fetch('/api/feeds/fetch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ feedId: id }),
     });
+    if (res.ok) {
+      setMessage(t('refreshDone'));
+    } else {
+      setError(t('refreshError'));
+    }
     setRefreshingId(null);
     await fetchFeeds();
+  }
+
+  async function markAllRead() {
+    setError('');
+    setMessage('');
+    const res = await fetch('/api/articles/read-all', { method: 'POST' });
+    if (res.ok) {
+      setMessage(t('markedRead'));
+    } else {
+      setError(t('markReadError'));
+    }
+  }
+
+  async function safeJson(res: Response) {
+    try {
+      return await res.json();
+    } catch {
+      return {};
+    }
   }
 
   if (status === 'loading') {
@@ -101,6 +169,11 @@ export default function DashboardPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">{t('title')}</h1>
+      {message && (
+        <p className="text-green-600 text-sm mb-4 bg-green-50 border border-green-200 rounded px-3 py-2">
+          {message}
+        </p>
+      )}
 
       <section className="mb-10">
         <h2 className="text-lg font-semibold mb-3">{t('myFeeds')}</h2>
@@ -129,7 +202,28 @@ export default function DashboardPage() {
           </p>
         )}
 
-        {feeds.length === 0 ? (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <a
+            href="/api/feeds/opml"
+            className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 rounded px-2 py-1"
+          >
+            {t('exportOpml')}
+          </a>
+          <button
+            onClick={markAllRead}
+            className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 rounded px-2 py-1"
+          >
+            {t('markAllRead')}
+          </button>
+        </div>
+
+        {loadingFeeds && feeds.length === 0 ? (
+          <div className="space-y-2">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="h-20 bg-gray-100 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : feeds.length === 0 ? (
           <p className="text-gray-400 text-sm">{t('noFeeds')}</p>
         ) : (
           <div className="space-y-2">
@@ -164,6 +258,15 @@ export default function DashboardPage() {
                 </div>
               </div>
             ))}
+            {nextCursor && (
+              <button
+                onClick={loadMoreFeeds}
+                disabled={loadingFeeds}
+                className="w-full border border-gray-200 rounded px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              >
+                {loadingFeeds ? t('loadingMore') : t('loadMore')}
+              </button>
+            )}
           </div>
         )}
       </section>
@@ -180,15 +283,17 @@ export default function DashboardPage() {
                 <ArticleCard
                   key={article.id}
                   title={article.title}
-                  description={article.description}
-                  link={article.link}
-                  feedTitle={feed.title}
-                  pubDate={article.pubDate ? new Date(article.pubDate) : null}
-                  locale={locale}
-                  readMoreLabel="Read more"
-                  fromFeedLabel="Source"
-                  publishedAtLabel="Published"
-                />
+	                  description={article.description}
+	                  link={article.link}
+	                  imageUrl={article.imageUrl}
+	                  feedTitle={feed.title}
+	                  pubDate={article.pubDate ? new Date(article.pubDate) : null}
+	                  locale={locale}
+	                  readMoreLabel="Read more"
+	                  fromFeedLabel="Source"
+	                  publishedAtLabel="Published"
+	                  appearance={appearance}
+	                />
               ))
             )}
           </div>
