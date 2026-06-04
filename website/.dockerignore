@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.gitignore
+.env
+.env.example
+*.md
+coverage
+.husky
+.eslintrc.json
+.prettierrc
+__mocks__
+src/test
+vitest.config.ts
+tsconfig.tsbuildinfo
