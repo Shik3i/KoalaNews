@@ -27,6 +27,8 @@ const mockParseString = vi.fn();
 mockParseString.mockResolvedValue(defaultFeed);
 
 const mockInstance = { parseURL: mockParseURL, parseString: mockParseString };
-const parserMock = vi.fn(() => mockInstance);
+const parserMock = vi.fn(function () {
+  return mockInstance;
+});
 
 export default parserMock;
