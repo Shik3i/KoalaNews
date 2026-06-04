@@ -1,0 +1,61 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "back": "Back"
+  },
+  "nav": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "settings": "Settings"
+  },
+  "home": {
+    "title": "Public Feed",
+    "subtitle": "Latest articles from all feeds",
+    "noArticles": "No articles yet.",
+    "fromFeed": "Source",
+    "publishedAt": "Published on",
+    "readMore": "Read more"
+  },
+  "auth": {
+    "loginTitle": "Login",
+    "email": "Email",
+    "password": "Password",
+    "loginButton": "Login",
+    "noAccount": "Don't have an account?",
+    "registerHere": "Register here",
+    "registerTitle": "Register",
+    "name": "Name",
+    "registerButton": "Register",
+    "hasAccount": "Already have an account?",
+    "loginHere": "Login here",
+    "errorInvalid": "Invalid email or password",
+    "errorExists": "Email already registered"
+  },
+  "dashboard": {
+    "title": "My Dashboard",
+    "myFeeds": "My Feeds",
+    "myArticles": "My Articles",
+    "addFeed": "Add Feed",
+    "feedUrl": "Feed URL",
+    "addButton": "Add",
+    "remove": "Remove",
+    "noFeeds": "No feeds added yet.",
+    "noArticles": "No articles yet.",
+    "fetchError": "Could not fetch feed. Please check the URL.",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing..."
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "languageEn": "English",
+    "languageDe": "German"
+  }
+}

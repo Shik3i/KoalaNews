@@ -1,0 +1,61 @@
+{
+  "common": {
+    "loading": "Laden...",
+    "error": "Fehler",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "back": "Zurück"
+  },
+  "nav": {
+    "home": "Startseite",
+    "dashboard": "Dashboard",
+    "login": "Anmelden",
+    "register": "Registrieren",
+    "logout": "Abmelden",
+    "settings": "Einstellungen"
+  },
+  "home": {
+    "title": "Öffentlicher Feed",
+    "subtitle": "Die neuesten Artikel aus allen Feeds",
+    "noArticles": "Noch keine Artikel vorhanden.",
+    "fromFeed": "Quelle",
+    "publishedAt": "Veröffentlicht am",
+    "readMore": "Weiterlesen"
+  },
+  "auth": {
+    "loginTitle": "Anmelden",
+    "email": "Email",
+    "password": "Passwort",
+    "loginButton": "Anmelden",
+    "noAccount": "Noch kein Konto?",
+    "registerHere": "Hier registrieren",
+    "registerTitle": "Registrieren",
+    "name": "Name",
+    "registerButton": "Registrieren",
+    "hasAccount": "Bereits registriert?",
+    "loginHere": "Hier anmelden",
+    "errorInvalid": "Ungültige Email oder Passwort",
+    "errorExists": "Email bereits registriert"
+  },
+  "dashboard": {
+    "title": "Mein Dashboard",
+    "myFeeds": "Meine Feeds",
+    "myArticles": "Meine Artikel",
+    "addFeed": "Feed hinzufügen",
+    "feedUrl": "Feed-URL",
+    "addButton": "Hinzufügen",
+    "remove": "Entfernen",
+    "noFeeds": "Noch keine Feeds hinterlegt.",
+    "noArticles": "Noch keine Artikel vorhanden.",
+    "fetchError": "Feed konnte nicht abgerufen werden. Bitte URL prüfen.",
+    "refresh": "Aktualisieren",
+    "refreshing": "Wird aktualisiert..."
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "language": "Sprache",
+    "languageEn": "Englisch",
+    "languageDe": "Deutsch"
+  }
+}
