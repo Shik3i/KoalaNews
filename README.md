@@ -98,6 +98,11 @@ Eine neue Sprache hinzufügen:
 2.  `fr` in `website/src/i18n/routing.ts` in `locales` eintragen
 3.  Fertig – die Sprache erscheint automatisch im Language-Switcher.
 
+## Richtlinien
+
+-   [CONTRIBUTING.md](CONTRIBUTING.md) – Entwicklungs-Workflow, Commit-Conventions, Setup
+-   [GUIDELINES.md](GUIDELINES.md) – Architektur-Prinzipien, Tech-Stack-Begründung, Qualitäts-Standards
+
 ## Lizenz
 
 MIT – siehe [LICENSE](LICENSE).
