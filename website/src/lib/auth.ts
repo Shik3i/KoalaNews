@@ -10,8 +10,13 @@ declare module 'next-auth' {
       id: string;
       name?: string | null;
       email?: string | null;
+      role: string;
     };
   }
+}
+
+export function pepperPassword(password: string): string {
+  return password + (process.env.PEPPER || '');
 }
 
 export const authOptions: NextAuthOptions = {
@@ -28,13 +33,21 @@ export const authOptions: NextAuthOptions = {
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
-
         if (!user) return null;
+        if (user.banned) return null;
 
-        const isValid = await compare(credentials.password, user.password);
+        const isValid = await compare(
+          pepperPassword(credentials.password),
+          user.password,
+        );
         if (!isValid) return null;
 
-        return { id: user.id, email: user.email, name: user.name };
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        };
       },
     }),
   ],
@@ -42,12 +55,16 @@ export const authOptions: NextAuthOptions = {
   pages: { signIn: '/login' },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.id = user.id;
+      if (user) {
+        token.id = user.id;
+        token.role = (user as any).role;
+      }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
+        session.user.role = token.role as string;
       }
       return session;
     },

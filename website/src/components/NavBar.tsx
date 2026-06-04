@@ -27,9 +27,17 @@ export default function NavBar() {
           <Link href="/" className="text-sm text-gray-600 hover:text-gray-900">
             {t('home')}
           </Link>
+          <Link href="/statistics" className="text-sm text-gray-600 hover:text-gray-900">
+            {t('statistics')}
+          </Link>
           {session && (
             <Link href="/dashboard" className="text-sm text-gray-600 hover:text-gray-900">
               {t('dashboard')}
+            </Link>
+          )}
+          {session?.user?.role === 'ADMIN' && (
+            <Link href="/admin" className="text-sm text-red-600 hover:text-red-800 font-medium">
+              {t('admin')}
             </Link>
           )}
         </div>

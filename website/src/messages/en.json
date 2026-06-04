@@ -13,7 +13,9 @@
     "login": "Login",
     "register": "Register",
     "logout": "Logout",
-    "settings": "Settings"
+    "settings": "Settings",
+    "statistics": "Statistics",
+    "admin": "Admin"
   },
   "home": {
     "title": "Public Feed",
@@ -57,5 +59,37 @@
     "language": "Language",
     "languageEn": "English",
     "languageDe": "German"
+  },
+  "statistics": {
+    "title": "Statistics",
+    "subtitle": "KoalaNews by the numbers",
+    "users": "Users",
+    "feeds": "Feeds",
+    "articles": "Articles",
+    "banned": "Banned",
+    "topFeeds": "Top Feeds",
+    "noFeeds": "No feeds yet."
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Site administration",
+    "userManagement": "User Management",
+    "settings": "Settings",
+    "id": "ID",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "feeds": "Feeds",
+    "banned": "Banned",
+    "created": "Created",
+    "actions": "Actions",
+    "ban": "Ban",
+    "unban": "Unban",
+    "makeAdmin": "Make Admin",
+    "removeAdmin": "Remove Admin",
+    "allowRegistration": "Allow Registration",
+    "saved": "Saved",
+    "cannotRemoveLastAdmin": "Cannot remove last admin",
+    "noUsers": "No users found."
   }
 }

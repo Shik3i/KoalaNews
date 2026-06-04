@@ -13,7 +13,9 @@
     "login": "Anmelden",
     "register": "Registrieren",
     "logout": "Abmelden",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "statistics": "Statistiken",
+    "admin": "Admin"
   },
   "home": {
     "title": "Öffentlicher Feed",
@@ -57,5 +59,37 @@
     "language": "Sprache",
     "languageEn": "Englisch",
     "languageDe": "Deutsch"
+  },
+  "statistics": {
+    "title": "Statistiken",
+    "subtitle": "KoalaNews in Zahlen",
+    "users": "Benutzer",
+    "feeds": "Feeds",
+    "articles": "Artikel",
+    "banned": "Gesperrt",
+    "topFeeds": "Top Feeds",
+    "noFeeds": "Noch keine Feeds vorhanden."
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Seitenverwaltung",
+    "userManagement": "Benutzerverwaltung",
+    "settings": "Einstellungen",
+    "id": "ID",
+    "name": "Name",
+    "email": "E-Mail",
+    "role": "Rolle",
+    "feeds": "Feeds",
+    "banned": "Gesperrt",
+    "created": "Erstellt",
+    "actions": "Aktionen",
+    "ban": "Sperren",
+    "unban": "Entsperren",
+    "makeAdmin": "Zum Admin machen",
+    "removeAdmin": "Admin entfernen",
+    "allowRegistration": "Registrierung erlauben",
+    "saved": "Gespeichert",
+    "cannotRemoveLastAdmin": "Kann letzten Admin nicht entfernen",
+    "noUsers": "Keine Benutzer gefunden."
   }
 }

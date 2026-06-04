@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  koalanews:
+    image: ghcr.io/shik3i/koalanews/koalanews-website:latest
+    container_name: koalanews
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?Must set NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=https://koalanews.example.com
+      - ALLOW_REGISTRATION=true
+      - PEPPER=${PEPPER:?Must set PEPPER}
+      - ADMIN_EMAIL=admin@example.com
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?Must set ADMIN_PASSWORD}
+    volumes:
+      - koalanews_data:/data
+    restart: unless-stopped
+
+volumes:
+  koalanews_data:
