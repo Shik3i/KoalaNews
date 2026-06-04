@@ -15,8 +15,17 @@ declare module 'next-auth' {
   }
 }
 
-export function pepperPassword(password: string): string {
-  return password + (process.env.PEPPER || '');
+let pepperCache: string | null = null;
+
+export async function getPepper(): Promise<string> {
+  if (pepperCache) return pepperCache;
+  const setting = await prisma.setting.findUnique({ where: { key: 'pepper' } });
+  pepperCache = setting?.value || '';
+  return pepperCache;
+}
+
+export function pepperPassword(password: string, pepper?: string): string {
+  return password + pepper;
 }
 
 export const authOptions: NextAuthOptions = {
@@ -36,8 +45,9 @@ export const authOptions: NextAuthOptions = {
         if (!user) return null;
         if (user.banned) return null;
 
+        const pepper = await getPepper();
         const isValid = await compare(
-          pepperPassword(credentials.password),
+          pepperPassword(credentials.password, pepper),
           user.password,
         );
         if (!isValid) return null;
