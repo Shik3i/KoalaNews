@@ -4,6 +4,7 @@ import { compare } from 'bcryptjs';
 import { prisma } from './prisma';
 
 declare module 'next-auth' {
+  // eslint-disable-next-line no-unused-vars
   interface Session {
     user: {
       id: string;

@@ -24,7 +24,7 @@ type Article = {
 };
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const t = useTranslations('dashboard');
   const locale = useLocale();
   const router = useRouter();
