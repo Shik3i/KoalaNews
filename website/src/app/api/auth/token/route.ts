@@ -29,6 +29,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'account_banned' }, { status: 403 });
     }
 
+    if (!user.password) {
+      return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
+    }
+
     const pepper = await getPepper();
     const isValid = await compare(pepperPassword(password, pepper), user.password);
     if (!isValid) {

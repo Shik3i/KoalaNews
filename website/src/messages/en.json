@@ -38,7 +38,9 @@
     "hasAccount": "Already have an account?",
     "loginHere": "Login here",
     "errorInvalid": "Invalid email or password",
-    "errorExists": "Email already registered"
+    "errorExists": "Email already registered",
+    "or": "or",
+    "googleLogin": "Continue with Google"
   },
   "dashboard": {
     "title": "My Dashboard",

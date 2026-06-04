@@ -38,7 +38,9 @@
     "hasAccount": "Bereits registriert?",
     "loginHere": "Hier anmelden",
     "errorInvalid": "Ungültige Email oder Passwort",
-    "errorExists": "Email bereits registriert"
+    "errorExists": "Email bereits registriert",
+    "or": "oder",
+    "googleLogin": "Mit Google fortfahren"
   },
   "dashboard": {
     "title": "Mein Dashboard",

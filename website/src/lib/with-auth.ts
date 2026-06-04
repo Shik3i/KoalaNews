@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
 

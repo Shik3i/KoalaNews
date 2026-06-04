@@ -1,5 +1,6 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import GoogleProvider from 'next-auth/providers/google';
 import { compare } from 'bcryptjs';
 import { prisma } from './prisma';
 
@@ -10,6 +11,7 @@ declare module 'next-auth' {
       id: string;
       name?: string | null;
       email?: string | null;
+      image?: string | null;
       role: string;
     };
   }
@@ -28,8 +30,28 @@ export function pepperPassword(password: string, pepper?: string): string {
   return password + pepper;
 }
 
+async function findOrCreateOAuthUser(profile: { email: string; name?: string | null; image?: string | null }) {
+  let user = await prisma.user.findUnique({ where: { email: profile.email } });
+
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        email: profile.email,
+        name: profile.name || profile.email.split('@')[0],
+        image: profile.image,
+      },
+    });
+  }
+
+  return user;
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    }),
     CredentialsProvider({
       name: 'credentials',
       credentials: {
@@ -44,6 +66,7 @@ export const authOptions: NextAuthOptions = {
         });
         if (!user) return null;
         if (user.banned) return null;
+        if (!user.password) return null;
 
         const pepper = await getPepper();
         const isValid = await compare(
@@ -56,6 +79,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
+          image: user.image,
           role: user.role,
         };
       },
@@ -64,10 +88,28 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: 'jwt' },
   pages: { signIn: '/login' },
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ account, profile }) {
+      if (account?.provider === 'google') {
+        if (!profile?.email) return false;
+        const user = await findOrCreateOAuthUser({
+          email: profile.email,
+          name: profile.name,
+          image: (profile as any).picture,
+        });
+        if (user.banned) return false;
+      }
+      return true;
+    },
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
+      } else if (account?.provider === 'google' && token.email) {
+        const dbUser = await prisma.user.findUnique({ where: { email: token.email } });
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.role = dbUser.role;
+        }
       }
       return token;
     },

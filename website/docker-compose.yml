@@ -11,6 +11,8 @@ services:
       - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@koalanews.local}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me-admin}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
     volumes:
       - koalanews_data:/data
     restart: unless-stopped
