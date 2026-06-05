@@ -5,17 +5,19 @@ import { prisma } from '@/lib/prisma';
 import ArticleCard from '@/components/ArticleCard';
 
 export default async function HomePage({
-  params: { locale },
+  params,
   searchParams,
 }: {
-  params: { locale: string };
-  searchParams?: { q?: string; feed?: string; sort?: string; take?: string };
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ q?: string; feed?: string; sort?: string; take?: string } | undefined>;
 }) {
+  const { locale } = await params;
+  const resolvedSearchParams = await searchParams;
   const t = await getTranslations('home');
-  const q = searchParams?.q?.trim();
-  const feed = searchParams?.feed?.trim();
-  const sort = searchParams?.sort === 'source' ? 'source' : 'date';
-  const take = asBoundedInt(searchParams?.take, 50, 1, 100);
+  const q = resolvedSearchParams?.q?.trim();
+  const feed = resolvedSearchParams?.feed?.trim();
+  const sort = resolvedSearchParams?.sort === 'source' ? 'source' : 'date';
+  const take = asBoundedInt(resolvedSearchParams?.take, 50, 1, 100);
 
   const articles = await prisma.article.findMany({
     where: {
@@ -30,7 +32,10 @@ export default async function HomePage({
         : {}),
       ...(feed ? { sourceFeed: { title: { contains: feed } } } : {}),
     },
-    orderBy: sort === 'source' ? [{ sourceFeed: { title: 'asc' } }, { pubDate: 'desc' }] : { pubDate: 'desc' },
+    orderBy:
+      sort === 'source'
+        ? [{ sourceFeed: { title: 'asc' } }, { pubDate: 'desc' }]
+        : { pubDate: 'desc' },
     take,
     include: {
       sourceFeed: { select: { title: true } },

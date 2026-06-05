@@ -54,10 +54,10 @@ export function requireAuth(handler: Handler) {
 }
 
 export function requireAdmin(handler: Handler) {
-  return requireAuth(async (request, userId, role) => {
+  return requireAuth(async (request, userId, role, ...args: any[]) => {
     if (role !== 'ADMIN') {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
-    return handler(request, userId, role);
+    return handler(request, userId, role, ...args);
   });
 }

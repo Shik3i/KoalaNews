@@ -8,11 +8,12 @@ import '../globals.css';
 
 export default async function LocaleLayout({
   children,
-  params: { locale },
+  params,
 }: {
   children: React.ReactNode;
-  params: { locale: string };
+  params: Promise<{ locale: string }>;
 }) {
+  const { locale } = await params;
   if (!locales.includes(locale as any)) notFound();
 
   const messages = await getMessages();
@@ -23,9 +24,7 @@ export default async function LocaleLayout({
         <NextIntlClientProvider messages={messages}>
           <Providers>
             <NavBar />
-            <main className="max-w-4xl mx-auto px-4 py-8">
-              {children}
-            </main>
+            <main className="max-w-4xl mx-auto px-4 py-8">{children}</main>
           </Providers>
         </NextIntlClientProvider>
       </body>

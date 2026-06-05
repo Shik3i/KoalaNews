@@ -1,17 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 
 export default function ResetPasswordPage({
   searchParams,
 }: {
-  searchParams?: { token?: string };
+  searchParams: Promise<{ token?: string } | undefined>;
 }) {
   const t = useTranslations('auth');
   const router = useRouter();
-  const [token, setToken] = useState(searchParams?.token ?? '');
+  const resolvedSearchParams = use(searchParams);
+  const [token, setToken] = useState(resolvedSearchParams?.token ?? '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
