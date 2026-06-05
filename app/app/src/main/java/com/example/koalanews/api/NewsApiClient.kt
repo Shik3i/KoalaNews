@@ -80,6 +80,53 @@ data class GeneralResponse(
     val ok: Boolean
 )
 
+@Serializable
+data class TopFeedDto(
+    val title: String?,
+    val url: String,
+    val articleCount: Int
+)
+
+@Serializable
+data class StatisticsResponse(
+    val users: Int,
+    val feeds: Int,
+    val articles: Int,
+    val bannedUsers: Int,
+    val topFeeds: List<TopFeedDto> = emptyList()
+)
+
+@Serializable
+data class UserFeedsCountDto(
+    val feeds: Int
+)
+
+@Serializable
+data class AdminUserDto(
+    val id: String,
+    val name: String? = null,
+    val email: String,
+    val role: String,
+    val banned: Boolean,
+    val bannedAt: String? = null,
+    val bannedReason: String? = null,
+    val createdAt: String? = null,
+    val _count: UserFeedsCountDto? = null
+)
+
+@Serializable
+data class AdminUsersResponse(
+    val items: List<AdminUserDto>,
+    val nextCursor: String? = null
+)
+
+@Serializable
+data class UpdateUserRequest(
+    val role: String? = null,
+    val banned: Boolean? = null,
+    val reason: String? = null
+)
+
 interface NewsApiService {
     @POST("api/auth/token")
     suspend fun login(@Body request: LoginRequest): LoginResponse
@@ -98,6 +145,28 @@ interface NewsApiService {
 
     @POST("api/articles/read-all")
     suspend fun markAllRead(): GeneralResponse
+
+    @GET("api/statistics")
+    suspend fun getStatistics(): StatisticsResponse
+
+    @GET("api/admin/users")
+    suspend fun getAdminUsers(
+        @Query("q") query: String? = null,
+        @Query("role") role: String? = null,
+        @Query("take") take: Int = 100
+    ): AdminUsersResponse
+
+    @PATCH("api/admin/users/{id}")
+    suspend fun updateAdminUser(
+        @Path("id") id: String,
+        @Body request: UpdateUserRequest
+    ): GeneralResponse
+
+    @GET("api/admin/settings")
+    suspend fun getAdminSettings(): Map<String, String>
+
+    @PUT("api/admin/settings")
+    suspend fun updateAdminSettings(@Body settings: Map<String, String>): GeneralResponse
 }
 
 class NewsApiClient(private val preferencesManager: PreferencesManager) {

@@ -29,6 +29,7 @@ import coil.compose.AsyncImage
 import com.example.koalanews.data.ArticleEntity
 import com.example.koalanews.data.FeedEntity
 import com.example.koalanews.ui.NewsViewModel
+import com.example.koalanews.api.*
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -79,6 +80,14 @@ fun DashboardScreen(
                     icon = { Icon(Icons.Default.RssFeed, contentDescription = "Feeds") },
                     label = { Text("Feeds") }
                 )
+                if (viewModel.currentUserRole == "ADMIN") {
+                    NavigationBarItem(
+                        selected = activeTab == 3,
+                        onClick = { activeTab = 3 },
+                        icon = { Icon(Icons.Default.Shield, contentDescription = "Admin") },
+                        label = { Text("Admin") }
+                    )
+                }
                 NavigationBarItem(
                     selected = activeTab == 2,
                     onClick = { activeTab = 2 },
@@ -109,6 +118,9 @@ fun DashboardScreen(
                 2 -> SettingsTab(
                     viewModel = viewModel,
                     onLogoutSuccess = onLogoutSuccess
+                )
+                3 -> AdminTab(
+                    viewModel = viewModel
                 )
             }
         }
@@ -340,11 +352,17 @@ fun ArticleItem(
                     if (!article.read) {
                         viewModel.toggleArticleRead(article.id, false)
                     }
-                    try {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(article.link))
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                    val url = article.link
+                    if (url.isNullOrEmpty()) {
+                        android.widget.Toast.makeText(context, "Link ungültig oder nicht vorhanden", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            android.widget.Toast.makeText(context, "Link konnte nicht geöffnet werden", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
         ) {
@@ -882,4 +900,456 @@ fun String.stripHtml(): String {
         .replace("&quot;", "\"")
         .replace("&#39;", "'")
         .trim()
+}
+
+// Admin panel Tab layouts and views
+@Composable
+fun AdminTab(viewModel: NewsViewModel) {
+    var selectedSubTab by remember { mutableStateOf(0) }
+    val tabs = listOf("Statistik", "Benutzer", "System")
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = selectedSubTab) {
+            tabs.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedSubTab == index,
+                    onClick = { selectedSubTab = index },
+                    text = { Text(title) }
+                )
+            }
+        }
+
+        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+            when (selectedSubTab) {
+                0 -> StatisticsSubTab(viewModel)
+                1 -> UsersSubTab(viewModel)
+                2 -> SettingsSubTab(viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+fun StatisticsSubTab(viewModel: NewsViewModel) {
+    val stats by viewModel.statistics.collectAsStateWithLifecycle()
+    val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadStatistics()
+    }
+
+    if (stats == null && isSyncing) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    val currentStats = stats
+    if (currentStats == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Statistiken konnten nicht geladen werden", style = MaterialTheme.typography.bodyMedium)
+        }
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(androidx.compose.foundation.rememberScrollState())
+    ) {
+        Text(
+            text = "Systemübersicht",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatCard(title = "Benutzer", count = currentStats.users.toString(), modifier = Modifier.weight(1f))
+            StatCard(title = "Feeds", count = currentStats.feeds.toString(), modifier = Modifier.weight(1f))
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatCard(title = "Artikel", count = currentStats.articles.toString(), modifier = Modifier.weight(1f))
+            StatCard(title = "Gesperrt", count = currentStats.bannedUsers.toString(), color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.weight(1f))
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Top Feeds (Artikelanzahl)",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        if (currentStats.topFeeds.isEmpty()) {
+            Text("Keine Feeds vorhanden", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    currentStats.topFeeds.forEach { feed ->
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = feed.title ?: feed.url,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "${feed.articleCount} Artikel",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = feed.url,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            HorizontalDivider()
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UsersSubTab(viewModel: NewsViewModel) {
+    val users by viewModel.adminUsers.collectAsStateWithLifecycle()
+    val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
+
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedRoleFilter by remember { mutableStateOf<String?>(null) }
+    var editingUser by remember { mutableStateOf<AdminUserDto?>(null) }
+
+    LaunchedEffect(searchQuery, selectedRoleFilter) {
+        viewModel.loadAdminUsers(query = searchQuery.ifEmpty { null }, role = selectedRoleFilter)
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Suche Benutzer...") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            singleLine = true,
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth().height(52.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilterChip(
+                selected = selectedRoleFilter == null,
+                onClick = { selectedRoleFilter = null },
+                label = { Text("Alle") }
+            )
+            FilterChip(
+                selected = selectedRoleFilter == "ADMIN",
+                onClick = { selectedRoleFilter = "ADMIN" },
+                label = { Text("Admins") }
+            )
+            FilterChip(
+                selected = selectedRoleFilter == "USER",
+                onClick = { selectedRoleFilter = "USER" },
+                label = { Text("User") }
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            if (isSyncing) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (users.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                Text("Keine Benutzer gefunden", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(users, key = { it.id }) { user ->
+                    UserCard(user = user, onClick = { editingUser = user })
+                }
+            }
+        }
+    }
+
+    editingUser?.let { user ->
+        UserEditDialog(
+            user = user,
+            viewModel = viewModel,
+            onDismiss = { editingUser = null }
+        )
+    }
+}
+
+@Composable
+fun UserCard(user: AdminUserDto, onClick: () -> Unit) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = user.name ?: "Kein Name",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                val badgeColor = if (user.role == "ADMIN") MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
+                val badgeTextColor = if (user.role == "ADMIN") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = badgeColor,
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Text(
+                        text = user.role,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = badgeTextColor,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = user.email,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Abonnements: ${user._count?.feeds ?: 0}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (user.banned) {
+                    Text(
+                        text = "Gesperrt",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                } else {
+                    Text(
+                        text = "Aktiv",
+                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UserEditDialog(
+    user: AdminUserDto,
+    viewModel: NewsViewModel,
+    onDismiss: () -> Unit
+) {
+    var role by remember { mutableStateOf(user.role) }
+    var banned by remember { mutableStateOf(user.banned) }
+    var reason by remember { mutableStateOf(user.bannedReason ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = "Benutzer verwalten") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "${user.name ?: "Benutzer"}\n(${user.email})",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Column {
+                    Text("Rolle", style = MaterialTheme.typography.labelMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        FilterChip(
+                            selected = role == "USER",
+                            onClick = { role = "USER" },
+                            label = { Text("USER") }
+                        )
+                        FilterChip(
+                            selected = role == "ADMIN",
+                            onClick = { role = "ADMIN" },
+                            label = { Text("ADMIN") }
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Benutzer sperren")
+                    Switch(
+                        checked = banned,
+                        onCheckedChange = { banned = it }
+                    )
+                }
+
+                if (banned) {
+                    OutlinedTextField(
+                        value = reason,
+                        onValueChange = { reason = it },
+                        label = { Text("Grund der Sperrung") },
+                        placeholder = { Text("z.B. Spam, Inaktivität") },
+                        singleLine = false,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    viewModel.updateAdminUser(
+                        id = user.id,
+                        role = role,
+                        banned = banned,
+                        reason = if (banned) reason.trim() else null,
+                        onComplete = onDismiss
+                    )
+                }
+            ) {
+                Text("Speichern")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Abbrechen")
+            }
+        }
+    )
+}
+
+@Composable
+fun SettingsSubTab(viewModel: NewsViewModel) {
+    val settings by viewModel.adminSettings.collectAsStateWithLifecycle()
+    val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadAdminSettings()
+    }
+
+    var allowRegistration by remember { mutableStateOf(false) }
+
+    LaunchedEffect(settings) {
+        val regVal = settings["allow_registration"]
+        allowRegistration = regVal == "true"
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "Systemeinstellungen",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Registrierungen erlauben", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Gibt an, ob neue Benutzer sich auf diesem Server selbst registrieren können.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = allowRegistration,
+                        onCheckedChange = { allowRegistration = it }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = {
+                viewModel.updateAdminSettings(mapOf("allow_registration" to allowRegistration.toString()))
+            },
+            enabled = !isSyncing,
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
+            if (isSyncing) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                Text("Einstellungen speichern")
+            }
+        }
+    }
 }

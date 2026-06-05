@@ -11,6 +11,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_USER_EMAIL = "user_email"
         private const val KEY_USER_NAME = "user_name"
+        private const val KEY_USER_ROLE = "user_role"
         
         // Appearance Settings
         private const val KEY_THEME = "theme" // "system", "light", "dark"
@@ -43,6 +44,10 @@ class PreferencesManager(context: Context) {
         get() = prefs.getString(KEY_USER_NAME, null)
         set(value) = prefs.edit().putString(KEY_USER_NAME, value).apply()
 
+    var userRole: String?
+        get() = prefs.getString(KEY_USER_ROLE, null)
+        set(value) = prefs.edit().putString(KEY_USER_ROLE, value).apply()
+
     var theme: String
         get() = prefs.getString(KEY_THEME, "system") ?: "system"
         set(value) = prefs.edit().putString(KEY_THEME, value).apply()
@@ -68,6 +73,7 @@ class PreferencesManager(context: Context) {
             .remove(KEY_AUTH_TOKEN)
             .remove(KEY_USER_EMAIL)
             .remove(KEY_USER_NAME)
+            .remove(KEY_USER_ROLE)
             .apply()
     }
 }

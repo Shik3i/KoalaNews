@@ -15,10 +15,10 @@ interface NewsDao {
     @Query("SELECT * FROM feeds WHERE id = :feedId LIMIT 1")
     suspend fun getFeedById(feedId: String): FeedEntity?
 
-    @Query("SELECT * FROM articles ORDER BY pubDate DESC, id DESC")
+    @Query("SELECT * FROM articles ORDER BY pubDateTimestamp DESC, id DESC")
     fun getArticles(): Flow<List<ArticleEntity>>
 
-    @Query("SELECT * FROM articles WHERE feedId = :feedId ORDER BY pubDate DESC, id DESC")
+    @Query("SELECT * FROM articles WHERE feedId = :feedId ORDER BY pubDateTimestamp DESC, id DESC")
     fun getArticlesForFeed(feedId: String): Flow<List<ArticleEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -41,6 +41,9 @@ interface NewsDao {
 
     @Query("DELETE FROM feeds WHERE id NOT IN (:feedIds)")
     suspend fun deleteFeedsNotIn(feedIds: List<String>)
+
+    @Query("DELETE FROM articles WHERE id NOT IN (SELECT id FROM articles ORDER BY IFNULL(pubDateTimestamp, 0) DESC, id DESC LIMIT :limit)")
+    suspend fun keepOnlyLatestArticles(limit: Int)
 
     @Query("DELETE FROM feeds")
     suspend fun clearFeeds()

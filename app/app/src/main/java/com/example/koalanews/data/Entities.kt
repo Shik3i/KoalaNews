@@ -34,5 +34,6 @@ data class ArticleEntity(
     val description: String?,
     val imageUrl: String?,
     val pubDate: String?,
+    val pubDateTimestamp: Long? = null,
     val read: Boolean = false
 )

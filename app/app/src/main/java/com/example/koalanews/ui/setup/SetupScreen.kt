@@ -136,7 +136,7 @@ fun SetupScreen(
                 viewModel.login(
                     serverUrl = serverUrl.trim(),
                     email = email.trim(),
-                    password = LoginRequest("", password), // Wrap raw password into the request dto helper
+                    password = password,
                     onSuccess = onLoginSuccess
                 )
             },
