@@ -40,7 +40,8 @@ data class ArticleDto(
     val link: String?,
     val description: String?,
     val imageUrl: String?,
-    val pubDate: String?
+    val pubDate: String?,
+    val read: Boolean = false
 )
 
 @Serializable
@@ -73,6 +74,11 @@ data class AddFeedResponse(
 @Serializable
 data class RefreshFeedRequest(
     val feedId: String
+)
+
+@Serializable
+data class ToggleReadRequest(
+    val read: Boolean
 )
 
 @Serializable
@@ -145,6 +151,12 @@ interface NewsApiService {
 
     @POST("api/articles/read-all")
     suspend fun markAllRead(): GeneralResponse
+
+    @POST("api/articles/{id}/read")
+    suspend fun toggleArticleRead(
+        @Path("id") id: String,
+        @Body request: ToggleReadRequest
+    ): GeneralResponse
 
     @GET("api/statistics")
     suspend fun getStatistics(): StatisticsResponse

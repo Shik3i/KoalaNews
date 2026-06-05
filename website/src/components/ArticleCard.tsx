@@ -1,6 +1,9 @@
+'use client';
+
 import { DEFAULT_APPEARANCE, type AppearanceSettings } from '@/lib/appearance';
 
 type ArticleCardProps = {
+  id?: string;
   title?: string | null;
   description?: string | null;
   link?: string | null;
@@ -12,9 +15,19 @@ type ArticleCardProps = {
   fromFeedLabel: string;
   publishedAtLabel: string;
   appearance?: Partial<AppearanceSettings>;
+  read?: boolean;
+  onToggleRead?: () => void;
+  onOpenReaderMode?: () => void;
+  isSelected?: boolean;
+  selectedForBulk?: boolean;
+  onToggleBulk?: () => void;
+  showBulkCheckbox?: boolean;
+  isSpeaking?: boolean;
+  onSpeak?: () => void;
 };
 
 export default function ArticleCard({
+  id: _id,
   title,
   description,
   link,
@@ -26,8 +39,18 @@ export default function ArticleCard({
   fromFeedLabel,
   publishedAtLabel,
   appearance,
+  read = false,
+  onToggleRead,
+  onOpenReaderMode,
+  isSelected = false,
+  selectedForBulk = false,
+  onToggleBulk,
+  showBulkCheckbox = false,
+  isSpeaking = false,
+  onSpeak,
 }: ArticleCardProps) {
   const settings = { ...DEFAULT_APPEARANCE, ...appearance };
+  const safeLocale = ['en', 'de', 'fr'].includes(locale) ? locale : 'en';
   const safeLink = getSafeExternalLink(link);
   const proxiedImage = settings.showImages ? getProxiedImageUrl(imageUrl) : null;
   const imageLoading =
@@ -36,11 +59,14 @@ export default function ArticleCard({
   const isCompact = settings.cardStyle === 'compact' || settings.cardStyle === 'dense';
   const showDescription =
     settings.showDescription && !isHeadline && description && settings.descriptionLines > 0;
+  
   const articleClass = [
-    'article-card bg-white border border-gray-200 transition dark:bg-gray-950 dark:border-gray-800',
+    'article-card bg-white border border-gray-200 transition dark:bg-gray-950 dark:border-gray-800 relative',
     settings.cardStyle === 'minimal' ? 'rounded p-4' : 'rounded-lg hover:shadow-sm',
     settings.cardStyle === 'dense' ? 'p-3' : settings.density === 'dense' ? 'p-3' : 'p-5',
     settings.design === 'terminal' ? 'font-mono' : '',
+    isSelected ? 'ring-2 ring-blue-500 border-blue-500 shadow-md scale-[1.01]' : '',
+    read ? 'opacity-60' : '',
   ].join(' ');
   const titleClass = isHeadline || isCompact ? 'text-base font-semibold' : 'text-lg font-semibold';
 
@@ -53,82 +79,138 @@ export default function ArticleCard({
       data-font-scale={settings.fontScale}
       data-density={settings.density}
     >
-      <div className={proxiedImage && !isCompact ? 'grid gap-4 sm:grid-cols-[160px_1fr]' : ''}>
-        {proxiedImage && !isHeadline && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={proxiedImage}
-            alt=""
-            loading={imageLoading}
-            referrerPolicy="no-referrer"
-            className={
-              isCompact
-                ? 'mb-3 h-28 w-full rounded object-cover'
-                : 'h-36 w-full rounded object-cover sm:h-full'
-            }
+      <div className="flex gap-3 items-start">
+        {showBulkCheckbox && (
+          <input
+            type="checkbox"
+            checked={selectedForBulk}
+            onChange={onToggleBulk}
+            className="mt-1.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-800 dark:bg-gray-950"
+            aria-label="Bulk auswählen"
           />
         )}
-
-        <div>
-          <h2 className={`${titleClass} mb-1`}>
-            {safeLink ? (
-              <a
-                href={safeLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-700 hover:text-blue-900 hover:underline dark:text-blue-300 dark:hover:text-blue-200"
-              >
-                {title ?? 'Untitled'}
-              </a>
-            ) : (
-              (title ?? 'Untitled')
+        <div className="flex-1 min-w-0">
+          <div className={proxiedImage && !isCompact ? 'grid gap-4 sm:grid-cols-[160px_1fr]' : ''}>
+            {proxiedImage && !isHeadline && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={proxiedImage}
+                alt=""
+                loading={imageLoading}
+                referrerPolicy="no-referrer"
+                className={
+                  isCompact
+                    ? 'mb-3 h-28 w-full rounded object-cover'
+                    : 'h-36 w-full rounded object-cover sm:h-full'
+                }
+              />
             )}
-          </h2>
 
-          {showDescription && (
-            <p
-              className="text-gray-600 text-sm mt-1 dark:text-gray-300"
-              style={{
-                display: '-webkit-box',
-                WebkitLineClamp: settings.descriptionLines,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-              }}
-            >
-              {description}
-            </p>
-          )}
+            <div>
+              <div className="flex items-start justify-between gap-2">
+                <h2 className={`${titleClass} mb-1 flex-1`}>
+                  {safeLink ? (
+                    <a
+                      href={safeLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-700 hover:text-blue-900 hover:underline dark:text-blue-300 dark:hover:text-blue-200"
+                      onClick={() => onToggleRead?.()}
+                    >
+                      {title ?? 'Untitled'}
+                    </a>
+                  ) : (
+                    (title ?? 'Untitled')
+                  )}
+                </h2>
+                
+                <div className="flex gap-1.5 shrink-0">
+                  {onSpeak && (
+                    <button
+                      onClick={onSpeak}
+                      className={`p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-500 dark:text-gray-400 transition ${isSpeaking ? 'text-green-500 dark:text-green-400 bg-green-50 dark:bg-green-950/30' : ''}`}
+                      title={isSpeaking ? 'Vorlesen stoppen' : 'Vorlesen'}
+                      aria-label="Vorlesen"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+                      </svg>
+                    </button>
+                  )}
+                  {onOpenReaderMode && (
+                    <button
+                      onClick={onOpenReaderMode}
+                      className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-500 dark:text-gray-400 transition"
+                      title="Lese-Modus"
+                      aria-label="Lese-Modus"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                      </svg>
+                    </button>
+                  )}
+                  {onToggleRead && (
+                    <button
+                      onClick={onToggleRead}
+                      className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-500 dark:text-gray-400 transition"
+                      title={read ? 'Als ungelesen markieren' : 'Als gelesen markieren'}
+                      aria-label={read ? 'Als ungelesen markieren' : 'Als gelesen markieren'}
+                    >
+                      <span className={`inline-block w-2.5 h-2.5 rounded-full ${read ? 'bg-gray-300 dark:bg-gray-700' : 'bg-blue-600'}`} />
+                    </button>
+                  )}
+                </div>
+              </div>
 
-          {(settings.showSource || settings.showDate) && (
-            <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-gray-400">
-              {settings.showSource && feedTitle && (
-                <span>
-                  {fromFeedLabel}: {feedTitle}
-                </span>
+              {showDescription && (
+                <p
+                  className="text-gray-600 text-sm mt-1 dark:text-gray-300"
+                  style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: settings.descriptionLines,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {description}
+                </p>
               )}
-              {settings.showDate && pubDate && (
-                <span>
-                  {publishedAtLabel}:{' '}
-                  {pubDate.toLocaleDateString(locale, {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                  })}
-                </span>
+
+              {(settings.showSource || settings.showDate) && (
+                <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-gray-400">
+                  {settings.showSource && feedTitle && (
+                    <span>
+                      {fromFeedLabel}: {feedTitle}
+                    </span>
+                  )}
+                  {settings.showDate && pubDate && (
+                    <span>
+                      {publishedAtLabel}:{' '}
+                      {pubDate.toLocaleString(safeLocale, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {settings.showReadMore && safeLink && settings.cardStyle !== 'headline' && (
+                <a
+                  href={safeLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block mt-2 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-300"
+                  onClick={() => onToggleRead?.()}
+                >
+                  {readMoreLabel} &rarr;
+                </a>
               )}
             </div>
-          )}
-
-          {settings.showReadMore && safeLink && settings.cardStyle !== 'headline' && (
-            <a
-              href={safeLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block mt-2 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-300"
-            >
-              {readMoreLabel} &rarr;
-            </a>
-          )}
+          </div>
         </div>
       </div>
     </article>

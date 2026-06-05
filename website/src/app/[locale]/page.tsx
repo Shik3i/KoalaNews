@@ -1,4 +1,6 @@
 import { getTranslations } from 'next-intl/server';
+import { notFound } from 'next/navigation';
+import { locales } from '@/i18n/routing';
 import { DEFAULT_APPEARANCE } from '@/lib/appearance';
 import { asBoundedInt } from '@/lib/api';
 import { prisma } from '@/lib/prisma';
@@ -13,6 +15,9 @@ export default async function HomePage({
   searchParams: Promise<{ q?: string; feed?: string; sort?: string; take?: string } | undefined>;
 }) {
   const { locale } = await params;
+  if (!locales.includes(locale as any)) {
+    notFound();
+  }
   const language = normalizeFeedLanguage(locale);
   const resolvedSearchParams = await searchParams;
   const t = await getTranslations('home');
@@ -22,6 +27,16 @@ export default async function HomePage({
   const take = asBoundedInt(resolvedSearchParams?.take, 50, 1, 100);
 
   await ensureDefaultFeed(language).catch(() => null);
+
+  // Fetch unique feed titles in the current language for autocomplete datalist
+  const feedsList = await prisma.sourceFeed.findMany({
+    where: { language },
+    select: { title: true },
+    orderBy: { title: 'asc' },
+  });
+  const uniqueFeedTitles = Array.from(
+    new Set(feedsList.map((f) => f.title).filter((t): t is string => Boolean(t)))
+  );
 
   const articles = await prisma.article.findMany({
     where: {
@@ -51,53 +66,61 @@ export default async function HomePage({
 
   return (
     <div className="space-y-10">
-      <section className="overflow-hidden rounded-[2rem] border border-white/40 bg-[var(--surface-hero)] px-6 py-10 shadow-[0_28px_90px_rgba(15,23,42,0.16)] sm:px-10 sm:py-14">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="inline-flex rounded-full border border-white/60 bg-white/70 px-4 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-fg)] shadow-sm">
-            {t('eyebrow')}
-          </span>
-          <h1 className="mt-5 text-4xl font-semibold tracking-tight text-[var(--page-fg)] sm:text-5xl">
-            {t('title')}
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[var(--muted-fg)] sm:text-lg">
-            {t('subtitle')}
-          </p>
-        </div>
+      {/* Search, Filter and Heading Container */}
+      <div className="relative rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-slate-950 mt-3">
+        <span className="absolute -top-2.5 left-4 px-2 text-xs font-bold uppercase tracking-wider text-gray-500 bg-white dark:bg-slate-950">
+          📰 {t('title')}
+        </span>
 
-        <details className="group mx-auto mt-8 max-w-4xl rounded-[1.75rem] border border-white/60 bg-white/75 p-3 shadow-[0_20px_60px_rgba(148,163,184,0.20)] backdrop-blur dark:border-white/10 dark:bg-slate-950/65">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl px-4 py-3 text-sm font-semibold text-[var(--page-fg)] marker:hidden">
-            <span>{t('filterToggle')}</span>
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--surface-elevated)] text-lg leading-none transition group-open:rotate-45">
-              +
-            </span>
-          </summary>
-          <form className="mt-3 grid gap-3 xl:grid-cols-[1.3fr_1fr_180px_auto]">
-            <input
-              name="q"
-              defaultValue={q}
-              placeholder={t('search')}
-              className="h-12 rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-elevated)] px-4 text-sm text-[var(--page-fg)] outline-none transition placeholder:text-[var(--muted-fg)] focus:border-[var(--accent-strong)] focus:ring-2 focus:ring-[var(--accent-soft)]"
-            />
-            <input
-              name="feed"
-              defaultValue={feed}
-              placeholder={t('filterFeed')}
-              className="h-12 rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-elevated)] px-4 text-sm text-[var(--page-fg)] outline-none transition placeholder:text-[var(--muted-fg)] focus:border-[var(--accent-strong)] focus:ring-2 focus:ring-[var(--accent-soft)]"
-            />
-            <select
-              name="sort"
-              defaultValue={sort}
-              className="h-12 rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-elevated)] px-4 text-sm font-medium text-[var(--page-fg)] outline-none transition focus:border-[var(--accent-strong)] focus:ring-2 focus:ring-[var(--accent-soft)]"
-            >
-              <option value="date">{t('sortDate')}</option>
-              <option value="source">{t('sortSource')}</option>
-            </select>
-            <button className="h-12 rounded-2xl bg-[var(--accent-strong)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(14,116,144,0.28)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(14,116,144,0.34)]">
-              {t('applyFilters')}
-            </button>
-          </form>
-        </details>
-      </section>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mt-2">
+          {/* Subtitle & Search Inputs */}
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed max-w-sm truncate hidden lg:block">
+              {t('subtitle')}
+            </p>
+            <form method="GET" className="flex flex-row items-center gap-2">
+              <div className="relative">
+                <input
+                  name="q"
+                  defaultValue={q}
+                  placeholder={t('search')}
+                  className="w-[180px] rounded-xl border border-gray-200 bg-gray-50 pl-7 pr-2.5 py-1 text-xs outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-slate-900 dark:text-[var(--page-fg)]"
+                />
+                <span className="absolute left-2.5 top-1.5 text-xs text-gray-400">🔍</span>
+              </div>
+              <div className="relative">
+                <input
+                  name="feed"
+                  defaultValue={feed}
+                  list="feed-sources"
+                  placeholder={t('filterFeed')}
+                  className="w-[150px] rounded-xl border border-gray-200 bg-gray-50 pl-7 pr-2.5 py-1 text-xs outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-slate-900 dark:text-[var(--page-fg)]"
+                />
+                <span className="absolute left-2.5 top-1.5 text-xs text-gray-400">📰</span>
+                <datalist id="feed-sources">
+                  {uniqueFeedTitles.map((title) => (
+                    <option key={title} value={title} />
+                  ))}
+                </datalist>
+              </div>
+              <select
+                name="sort"
+                defaultValue={sort}
+                className="rounded-xl border border-gray-200 bg-white dark:bg-slate-900 px-2 py-1 text-xs outline-none dark:border-gray-800"
+              >
+                <option value="date">{t('sortDate')}</option>
+                <option value="source">{t('sortSource')}</option>
+              </select>
+              <button
+                type="submit"
+                className="rounded-xl bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition"
+              >
+                {t('applyFilters')}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
 
       {articles.length === 0 ? (
         <section className="rounded-[1.75rem] border border-dashed border-[var(--border-strong)] bg-[var(--surface-elevated)] px-6 py-16 text-center">

@@ -1,7 +1,6 @@
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
-import Script from 'next/script';
 import { locales } from '@/i18n/routing';
 import Providers from '@/components/Providers';
 import NavBar from '@/components/NavBar';
@@ -21,23 +20,27 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  var stored = localStorage.getItem('theme');
+                  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  var resolved = stored === 'dark' || stored === 'light' ? stored : (prefersDark ? 'dark' : 'light');
+                  document.documentElement.classList.toggle('dark', resolved === 'dark');
+                  document.documentElement.dataset.theme = resolved;
+                } catch (error) {
+                  document.documentElement.classList.remove('dark');
+                  document.documentElement.dataset.theme = 'light';
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-[var(--page-bg)] text-[var(--page-fg)] antialiased transition-colors duration-300">
-        <Script id="theme-init" strategy="beforeInteractive">
-          {`
-            (function () {
-              try {
-                var stored = localStorage.getItem('theme');
-                var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                var resolved = stored === 'dark' || stored === 'light' ? stored : (prefersDark ? 'dark' : 'light');
-                document.documentElement.classList.toggle('dark', resolved === 'dark');
-                document.documentElement.dataset.theme = resolved;
-              } catch (error) {
-                document.documentElement.classList.remove('dark');
-                document.documentElement.dataset.theme = 'light';
-              }
-            })();
-          `}
-        </Script>
         <NextIntlClientProvider messages={messages}>
           <Providers>
             <NavBar />

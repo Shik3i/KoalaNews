@@ -216,14 +216,14 @@ export default function AdminPage() {
 
       <section className="mb-10">
         <h2 className="text-lg font-semibold mb-3">{t('settings')}</h2>
-        <div className="bg-white border border-gray-200 rounded p-4 flex items-center justify-between">
+        <div className="bg-white border border-gray-200 dark:bg-gray-950 dark:border-gray-800 rounded p-4 flex items-center justify-between">
           <span className="text-sm">{t('allowRegistration')}</span>
           <button
             onClick={toggleRegistration}
-            className={`relative w-12 h-6 rounded-full transition-colors ${settings.allow_registration === 'true' ? 'bg-green-500' : 'bg-gray-300'}`}
+            className={`relative w-12 h-6 rounded-full transition-colors ${settings.allow_registration === 'true' ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-700'}`}
           >
             <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${settings.allow_registration === 'true' ? 'translate-x-6' : ''}`}
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white dark:bg-gray-300 rounded-full shadow transition-transform ${settings.allow_registration === 'true' ? 'translate-x-6' : ''}`}
             />
           </button>
         </div>
@@ -245,26 +245,26 @@ export default function AdminPage() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
-          <div className="rounded border border-gray-200 bg-white p-4">
-            <p className="text-sm text-gray-500">{t('databaseSize')}</p>
+          <div className="rounded border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('databaseSize')}</p>
             <p className="mt-2 text-2xl font-semibold">{database?.sizeLabel ?? '-'}</p>
-            <p className="mt-3 break-all text-xs text-gray-400">{database?.backupDir ?? ''}</p>
+            <p className="mt-3 break-all text-xs text-gray-400 dark:text-gray-500">{database?.backupDir ?? ''}</p>
           </div>
 
-          <div className="rounded border border-gray-200 bg-white p-4">
+          <div className="rounded border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-4">
             <h3 className="mb-3 text-sm font-semibold">{t('backups')}</h3>
             {!database?.backups?.length ? (
-              <p className="text-sm text-gray-400">{t('noBackups')}</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">{t('noBackups')}</p>
             ) : (
               <div className="space-y-2">
                 {database.backups.map((backup) => (
                   <div
                     key={backup.name}
-                    className="flex flex-col gap-3 rounded border border-gray-100 p-3 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 rounded border border-gray-100 dark:border-gray-800 dark:bg-gray-900/40 p-3 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
-                      <p className="font-mono text-xs text-gray-700">{backup.name}</p>
-                      <p className="mt-1 text-xs text-gray-400">
+                      <p className="font-mono text-xs text-gray-700 dark:text-gray-300">{backup.name}</p>
+                      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
                         {backup.kind} · {backup.sizeLabel} ·{' '}
                         {new Date(backup.createdAt).toLocaleString()}
                       </p>
@@ -272,14 +272,14 @@ export default function AdminPage() {
                     <div className="flex gap-2">
                       <a
                         href={backup.downloadUrl}
-                        className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        className="rounded border border-gray-200 dark:border-gray-800 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                       >
                         {t('download')}
                       </a>
                       <button
                         type="button"
                         onClick={() => setSelectedBackup(backup)}
-                        className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        className="rounded border border-gray-200 dark:border-gray-800 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                       >
                         {t('restoreInstructions')}
                       </button>
@@ -290,11 +290,11 @@ export default function AdminPage() {
             )}
 
             {selectedBackup && (
-              <div className="mt-4 rounded border border-amber-200 bg-amber-50 p-3">
-                <p className="mb-2 text-sm font-semibold text-amber-900">
+              <div className="mt-4 rounded border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/20 p-3">
+                <p className="mb-2 text-sm font-semibold text-amber-900 dark:text-amber-400">
                   {t('restoreInstructions')}
                 </p>
-                <p className="mb-3 text-xs text-amber-800">{t('restoreHint')}</p>
+                <p className="mb-3 text-xs text-amber-800 dark:text-amber-500">{t('restoreHint')}</p>
                 <pre className="overflow-x-auto rounded bg-gray-950 p-3 text-xs text-gray-100">
                   {selectedBackup.restoreCommands}
                 </pre>
@@ -318,12 +318,12 @@ export default function AdminPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('searchUsers')}
-            className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 dark:border-gray-800 dark:bg-gray-950 dark:text-[var(--page-fg)] rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 dark:border-gray-800 dark:bg-gray-950 dark:text-[var(--page-fg)] rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">{t('allRoles')}</option>
             <option value="ADMIN">ADMIN</option>
@@ -344,30 +344,30 @@ export default function AdminPage() {
           <p className="text-gray-400 text-sm">{t('noUsers')}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm bg-white border border-gray-200 rounded">
-              <thead className="bg-gray-50">
+            <table className="w-full text-sm bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded">
+              <thead className="bg-gray-50 dark:bg-gray-900">
                 <tr>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600">{t('id')}</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600">{t('name')}</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600">{t('email')}</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600">{t('role')}</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600">{t('feeds')}</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600">{t('banned')}</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600">{t('created')}</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600">{t('actions')}</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">{t('id')}</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">{t('name')}</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">{t('email')}</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">{t('role')}</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">{t('feeds')}</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">{t('banned')}</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">{t('created')}</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">{t('actions')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 text-xs font-mono text-gray-400">
+                  <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
+                    <td className="px-3 py-2 text-xs font-mono text-gray-400 dark:text-gray-500">
                       {user.id.slice(0, 8)}
                     </td>
                     <td className="px-3 py-2">{user.name || '-'}</td>
                     <td className="px-3 py-2">{user.email}</td>
                     <td className="px-3 py-2">
                       <span
-                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${user.role === 'ADMIN' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${user.role === 'ADMIN' ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
                       >
                         {user.role}
                       </span>
@@ -380,7 +380,7 @@ export default function AdminPage() {
                         <span className="text-gray-400 text-xs">-</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-xs text-gray-400">
+                    <td className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-3 py-2">
@@ -410,7 +410,7 @@ export default function AdminPage() {
               <button
                 onClick={loadMoreUsers}
                 disabled={loading}
-                className="w-full border border-gray-200 rounded px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 mt-3"
+                className="w-full border border-gray-200 dark:border-gray-800 rounded px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 disabled:opacity-50 mt-3"
               >
                 {loading ? t('loadingMore') : t('loadMore')}
               </button>

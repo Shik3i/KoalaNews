@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -22,11 +21,36 @@ model User {
   readArticles ArticleRead[]
   resetTokens  PasswordResetToken[]
   preferences  UserPreference?
+  categories   Category[]
+  smartFeeds   SmartFeed[]
 }
 
 model Setting {
   key   String @id
   value String
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feeds     Feed[]
+  createdAt DateTime @default(now())
+
+  @@unique([userId, name])
+}
+
+model SmartFeed {
+  id        String   @id @default(cuid())
+  name      String
+  query     String
+  feedId    String?  // Optional filter by specific feed source
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, name])
 }
 
 model Feed {
@@ -39,6 +63,8 @@ model Feed {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   sourceFeedId String?
   sourceFeed  SourceFeed? @relation(fields: [sourceFeedId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   articles    Article[]
   lastFetchedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -48,6 +74,7 @@ model Feed {
   @@index([userId, createdAt])
   @@index([language])
   @@index([sourceFeedId])
+  @@index([categoryId])
   @@unique([userId, url])
 }
 

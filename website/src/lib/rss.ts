@@ -165,8 +165,17 @@ function getItemImageUrl(item: FeedItem): string | null {
     }
   }
 
+  const contentHtml = (item['content:encoded'] as string) || (item.content as string);
+  if (contentHtml && typeof contentHtml === 'string') {
+    const match = contentHtml.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
   return null;
 }
+
 
 export type FeedLanguage = keyof typeof DEFAULT_FEEDS;
 
@@ -272,6 +281,7 @@ export async function fetchAndParseFeed(url: string): Promise<ParsedFeed> {
       enclosure: item.enclosure,
       'media:content': item['media:content'],
       'media:thumbnail': item['media:thumbnail'],
+      'content:encoded': item['content:encoded'],
     })),
   };
 }

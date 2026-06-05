@@ -45,9 +45,8 @@ class NewsRepository(
                         description = articleDto.description,
                         imageUrl = articleDto.imageUrl,
                         pubDate = articleDto.pubDate,
-                        pubDateTimestamp = parsePubDateToTimestamp(articleDto.pubDate)
-                        // default read status is false; if it's already in the database with true,
-                        // OnConflictStrategy.IGNORE will ensure it is not overwritten.
+                        pubDateTimestamp = parsePubDateToTimestamp(articleDto.pubDate),
+                        read = articleDto.read
                     )
                 }
             }
@@ -116,6 +115,11 @@ class NewsRepository(
 
     suspend fun markArticleRead(articleId: String, read: Boolean) = withContext(Dispatchers.IO) {
         newsDao.markArticleRead(articleId, read)
+        try {
+            apiClient.getService().toggleArticleRead(articleId, ToggleReadRequest(read))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     suspend fun markAllRead(): Result<Unit> = withContext(Dispatchers.IO) {

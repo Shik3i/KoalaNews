@@ -60,7 +60,7 @@ export default function LoginPage() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {t('email')}
           </label>
           <input
@@ -68,12 +68,12 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full border border-gray-300 dark:border-gray-800 dark:bg-gray-950 dark:text-[var(--page-fg)] rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {t('password')}
           </label>
           <input
@@ -81,17 +81,17 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full border border-gray-300 dark:border-gray-800 dark:bg-gray-950 dark:text-[var(--page-fg)] rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <label className="flex items-center gap-2 text-sm text-gray-600">
+          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <input
               type="checkbox"
               checked={remember}
               onChange={(e) => setRemember(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="h-4 w-4 rounded border-gray-300 dark:border-gray-800 dark:bg-gray-950 text-blue-600 focus:ring-blue-500"
             />
             {t('rememberMe')}
           </label>
@@ -113,16 +113,16 @@ export default function LoginPage() {
         <>
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
+              <div className="w-full border-t border-gray-200 dark:border-gray-800" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="bg-white px-2 text-gray-400">{t('or')}</span>
+              <span className="bg-[var(--page-bg)] px-2 text-gray-400">{t('or')}</span>
             </div>
           </div>
 
           <button
             onClick={handleGoogle}
-            className="w-full flex items-center justify-center gap-2 border border-gray-300 rounded py-2 text-sm font-medium hover:bg-gray-50 transition"
+            className="w-full flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-800 rounded py-2 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-900 transition"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
               <path
