@@ -42,8 +42,8 @@ class NewsViewModel(
     val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
 
     // Config & Auth States
-    val isAuthenticated: Boolean
-        get() = preferencesManager.authToken != null
+    var isAuthenticated by mutableStateOf(preferencesManager.authToken != null)
+        private set
 
     val currentServerUrl: String
         get() = preferencesManager.serverUrl
@@ -79,6 +79,9 @@ class NewsViewModel(
                 }
                 .onFailure {
                     _errorMessage.value = "Sync fehlgeschlagen: ${it.localizedMessage}"
+                    if (preferencesManager.authToken == null) {
+                        isAuthenticated = false
+                    }
                 }
             _isSyncing.value = false
         }
@@ -101,6 +104,7 @@ class NewsViewModel(
                 preferencesManager.authToken = response.token
                 preferencesManager.userEmail = response.user.email
                 preferencesManager.userName = response.user.name
+                isAuthenticated = true
                 
                 _successMessage.value = "Erfolgreich angemeldet!"
                 sync()
@@ -109,6 +113,7 @@ class NewsViewModel(
                 e.printStackTrace()
                 _errorMessage.value = "Login fehlgeschlagen: ${e.localizedMessage}"
                 preferencesManager.clearSession()
+                isAuthenticated = false
             } finally {
                 _isSyncing.value = false
             }
@@ -118,6 +123,7 @@ class NewsViewModel(
     fun logout(onSuccess: () -> Unit) {
         viewModelScope.launch {
             repository.clearLocalData()
+            isAuthenticated = false
             onSuccess()
         }
     }

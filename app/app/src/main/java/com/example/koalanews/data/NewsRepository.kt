@@ -55,18 +55,21 @@ class NewsRepository(
             newsDao.insertArticles(articleEntities)
 
             // Local cleanup: remove feeds that are no longer subscribed on the server
-            val serverFeedIds = feedEntities.map { it.id }.toSet()
-            // We fetch the current list of local feeds and delete any not in serverFeedIds
-            // First we need to get current feeds synchronously. We'll add a helper or use database query
-            // Let's do it simply:
-            val localFeeds = newsDao.getFeeds()
-            // To do this simply without flow blocking, we can use a direct database list query or just rely on CASCADE.
-            // When we unsubscribe, we delete via DELETE anyway. If synced from another client, we can fetch all and prune:
-            // Since we can just loop over feeds, let's keep it simple for now.
+            val serverFeedIds = feedEntities.map { it.id }
+            if (serverFeedIds.isEmpty()) {
+                newsDao.clearFeeds()
+            } else {
+                newsDao.deleteFeedsNotIn(serverFeedIds)
+            }
 
             Result.success(Unit)
         } catch (e: Exception) {
             e.printStackTrace()
+            if (e is retrofit2.HttpException && e.code() == 401) {
+                newsDao.clearFeeds()
+                newsDao.clearArticles()
+                preferencesManager.clearSession()
+            }
             Result.failure(e)
         }
     }

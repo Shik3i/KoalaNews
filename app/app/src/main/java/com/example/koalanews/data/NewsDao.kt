@@ -39,6 +39,9 @@ interface NewsDao {
     @Query("DELETE FROM feeds WHERE id = :feedId")
     suspend fun deleteFeed(feedId: String)
 
+    @Query("DELETE FROM feeds WHERE id NOT IN (:feedIds)")
+    suspend fun deleteFeedsNotIn(feedIds: List<String>)
+
     @Query("DELETE FROM feeds")
     suspend fun clearFeeds()
 

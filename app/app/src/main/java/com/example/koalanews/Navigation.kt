@@ -1,6 +1,8 @@
 package com.example.koalanews
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
@@ -12,6 +14,19 @@ import com.example.koalanews.ui.setup.SetupScreen
 fun MainNavigation(viewModel: NewsViewModel) {
   val startingKey = if (viewModel.isAuthenticated) Main else Setup
   val backStack = rememberNavBackStack(startingKey)
+
+  val isAuthenticated = viewModel.isAuthenticated
+  LaunchedEffect(isAuthenticated) {
+    if (!isAuthenticated) {
+      // If session is cleared, force redirect to Setup screen
+      try {
+        backStack.clear()
+        backStack.add(Setup)
+      } catch (e: Exception) {
+        e.printStackTrace()
+      }
+    }
+  }
 
   NavDisplay(
     backStack = backStack,
@@ -26,11 +41,12 @@ fun MainNavigation(viewModel: NewsViewModel) {
           SetupScreen(
               viewModel = viewModel,
               onLoginSuccess = {
-                  backStack.add(Main)
-                  // Optional: prune the backstack of Setup to prevent going back to it
                   try {
-                      // If it's a standard list/collection we can try to filter it
-                      // but typically in Navigation 3, backStack size > 1 handles it.
+                      backStack.add(Main)
+                      // Prune the Setup key
+                      if (backStack.size > 1) {
+                          backStack.removeAt(0)
+                      }
                   } catch (e: Exception) {
                       e.printStackTrace()
                   }
@@ -41,11 +57,11 @@ fun MainNavigation(viewModel: NewsViewModel) {
           DashboardScreen(
               viewModel = viewModel,
               onLogoutSuccess = {
-                  backStack.add(Setup)
-                  // Clean up the backstack
                   try {
-                      while (backStack.size > 1) {
-                          backStack.removeLastOrNull()
+                      backStack.add(Setup)
+                      // Prune the Main key
+                      if (backStack.size > 1) {
+                          backStack.removeAt(0)
                       }
                   } catch (e: Exception) {
                       e.printStackTrace()

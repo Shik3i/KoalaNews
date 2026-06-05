@@ -23,7 +23,11 @@ class PreferencesManager(context: Context) {
     var serverUrl: String
         get() = prefs.getString(KEY_SERVER_URL, "https://news.koalastuff.net") ?: "https://news.koalastuff.net"
         set(value) {
-            val normalized = if (value.endsWith("/")) value.substring(0, value.length - 1) else value
+            var url = value.trim()
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                url = "https://$url"
+            }
+            val normalized = if (url.endsWith("/")) url.substring(0, url.length - 1) else url
             prefs.edit().putString(KEY_SERVER_URL, normalized).apply()
         }
 

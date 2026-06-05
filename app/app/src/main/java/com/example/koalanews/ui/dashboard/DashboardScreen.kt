@@ -434,7 +434,7 @@ fun ArticleItem(
                         if (showDescription && !article.description.isNullOrEmpty()) {
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = article.description,
+                                text = article.description.stripHtml(),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 3,
@@ -775,7 +775,7 @@ fun SettingsTab(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-        Divider()
+        HorizontalDivider()
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
@@ -871,4 +871,15 @@ fun formatDate(pubDateString: String?): String {
 @Composable
 fun rememberScrollState(): androidx.compose.foundation.ScrollState {
     return androidx.compose.foundation.rememberScrollState()
+}
+
+fun String.stripHtml(): String {
+    return this.replace(Regex("<[^>]*>"), "")
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .trim()
 }
