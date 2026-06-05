@@ -11,6 +11,7 @@ const mockPrisma = vi.hoisted(() => ({
   feed: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   sourceFeed: { upsert: vi.fn(), update: vi.fn() },
   article: { createMany: vi.fn(), findMany: vi.fn() },
+  imageCache: { findUnique: vi.fn(), upsert: vi.fn() },
 }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
@@ -78,6 +79,7 @@ describe('saveFeed', () => {
     });
     mockPrisma.article.findMany.mockResolvedValue([]);
     mockPrisma.article.createMany.mockResolvedValue({ count: 2 });
+    mockPrisma.imageCache.findUnique.mockResolvedValue({ sourceUrl: 'cached' });
   });
 
   it('creates a feed record', async () => {
@@ -142,6 +144,7 @@ describe('refreshFeed', () => {
     mockPrisma.feed.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.article.findMany.mockResolvedValue([]);
     mockPrisma.article.createMany.mockResolvedValue({ count: 1 });
+    mockPrisma.imageCache.findUnique.mockResolvedValue({ sourceUrl: 'cached' });
   });
 
   it('updates feed metadata', async () => {

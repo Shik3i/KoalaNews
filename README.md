@@ -22,20 +22,21 @@ KoalaNews/
 -   **Automatisches Parsing** – Artikel werden beim Hinzufügen & auf Knopfdruck serverseitig abgerufen
 -   **Lokaler Artikel-/Bildcache** – RSS-Artikel und gecachte Bilder liegen in SQLite; Browser laden Bilder nur über die eigene App-Origin
 -   **Appearance Settings** – Design-Presets, Card-Layouts, Dichte, Schriftgröße und sichtbare Felder pro User
--   **Zweisprachig** – Deutsch & Englisch, erweiterbar um weitere Sprachen
+-   **Mehrsprachig** – Deutsch, Englisch & Französisch, erweiterbar um weitere Sprachen
+-   **GFS-Backups** – SQLite-Backups neben der Datenbank, ohne Artikel-/Bildcache-Datenmuell
 -   **Docker** – Multi-Stage-Build, SQLite-Persistenz, CI-Pipeline
 
 ## Tech-Stack
 
 | Bereich         | Technologie                              |
 | --------------- | ---------------------------------------- |
-| Framework       | Next.js 14 (App Router)                  |
+| Framework       | Next.js 15 (App Router)                  |
 | Sprache         | TypeScript                               |
 | Styling         | Tailwind CSS                             |
 | Datenbank       | SQLite via Prisma                        |
 | Authentifizierung | NextAuth.js (Credentials)              |
 | RSS-Parsing     | rss-parser                               |
-| Internationalisierung | next-intl (DE + EN)              |
+| Internationalisierung | next-intl (DE + EN + FR)         |
 | Container       | Docker (Multi-Stage)                     |
 | CI/CD           | GitHub Actions → ghcr.io                 |
 
@@ -87,6 +88,23 @@ KOALANEWS_RETENTION_DAYS=14 npm run cleanup
 
 Die App startet den Cleanup außerdem automatisch opportunistisch bei Feed-Hinzufügen/Refresh. `KOALANEWS_CLEANUP_INTERVAL_HOURS` begrenzt diese Auto-Cleanup-Läufe, Default ist `24`. Für harte Betriebsfenster kann zusätzlich ein Host-Cron, systemd timer oder Orchestrator-Schedule `npm run cleanup` ausführen.
 
+### Backups
+
+KoalaNews legt Grandfather/Father/Son-Backups im `backup/` Ordner neben der SQLite-Datenbank an. Artikel, Lesestatus und Bildcache werden aus der Backup-Kopie entfernt, weil diese Daten jederzeit aus den RSS-Feeds neu geladen werden können.
+
+```bash
+cd website
+npm run backup
+```
+
+Im Docker-Container kann ein täglicher Host-Cron so aussehen:
+
+```cron
+15 3 * * * docker exec koalanews node backup.mjs
+```
+
+Die Admin-Seite zeigt Datenbankgröße, Backup-Liste, Download-Links und Restore-Befehle. Vor einem Restore immer zuerst den Container stoppen.
+
 ## Deployment
 
 1.  Repository auf GitHub pushen
@@ -105,7 +123,7 @@ docker run -d \
   ghcr.io/dein-user/KoalaNews/koalanews-website:latest
 ```
 
-Die SQLite-Datenbank liegt unter `/data/koalanews.db` – einfach per Volume-Backup sichern.
+Die SQLite-Datenbank liegt unter `/data/koalanews.db`; GFS-Backups liegen unter `/data/backup`.
 
 ## Umgebungsvariablen
 

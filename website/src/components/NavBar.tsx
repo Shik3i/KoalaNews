@@ -74,7 +74,7 @@ export default function NavBar() {
             >
               {locales.map((loc) => (
                 <option key={loc} value={loc}>
-                  {loc === 'de' ? '🇩🇪 Deutsch' : '🇬🇧 English'}
+                  {getLocaleLabel(loc)}
                 </option>
               ))}
             </select>
@@ -137,6 +137,15 @@ export default function NavBar() {
       </div>
     </nav>
   );
+}
+
+function getLocaleLabel(locale: Locale) {
+  const labels: Record<Locale, string> = {
+    de: '🇩🇪 Deutsch',
+    en: '🇬🇧 English',
+    fr: '🇫🇷 Francais',
+  };
+  return labels[locale];
 }
 
 function resolveTheme(): 'light' | 'dark' {

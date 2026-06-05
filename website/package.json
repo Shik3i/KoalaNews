@@ -19,6 +19,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "cleanup": "node scripts/cleanup.mjs",
+    "backup": "node scripts/backup.mjs",
     "postinstall": "prisma generate",
     "prepare": "husky",
     "validate": "npm run lint && npm run typecheck && npm run test:run",

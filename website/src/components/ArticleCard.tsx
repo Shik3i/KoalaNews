@@ -30,9 +30,12 @@ export default function ArticleCard({
   const settings = { ...DEFAULT_APPEARANCE, ...appearance };
   const safeLink = getSafeExternalLink(link);
   const proxiedImage = settings.showImages ? getProxiedImageUrl(imageUrl) : null;
+  const imageLoading =
+    imageUrl?.startsWith('/') || imageUrl?.startsWith('data:image/') ? 'eager' : 'lazy';
   const isHeadline = settings.cardStyle === 'headline';
   const isCompact = settings.cardStyle === 'compact' || settings.cardStyle === 'dense';
-  const showDescription = settings.showDescription && !isHeadline && description && settings.descriptionLines > 0;
+  const showDescription =
+    settings.showDescription && !isHeadline && description && settings.descriptionLines > 0;
   const articleClass = [
     'article-card bg-white border border-gray-200 transition dark:bg-gray-950 dark:border-gray-800',
     settings.cardStyle === 'minimal' ? 'rounded p-4' : 'rounded-lg hover:shadow-sm',
@@ -56,7 +59,7 @@ export default function ArticleCard({
           <img
             src={proxiedImage}
             alt=""
-            loading="lazy"
+            loading={imageLoading}
             referrerPolicy="no-referrer"
             className={
               isCompact
@@ -78,7 +81,7 @@ export default function ArticleCard({
                 {title ?? 'Untitled'}
               </a>
             ) : (
-              title ?? 'Untitled'
+              (title ?? 'Untitled')
             )}
           </h2>
 
@@ -105,7 +108,8 @@ export default function ArticleCard({
               )}
               {settings.showDate && pubDate && (
                 <span>
-                  {publishedAtLabel}: {pubDate.toLocaleDateString(locale, {
+                  {publishedAtLabel}:{' '}
+                  {pubDate.toLocaleDateString(locale, {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric',
@@ -143,6 +147,7 @@ function getSafeExternalLink(link?: string | null) {
 
 function getProxiedImageUrl(imageUrl?: string | null) {
   if (!imageUrl) return null;
+  if (imageUrl.startsWith('/') || imageUrl.startsWith('data:image/')) return imageUrl;
   try {
     const url = new URL(imageUrl);
     if (!['http:', 'https:'].includes(url.protocol)) return null;

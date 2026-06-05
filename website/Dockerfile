@@ -1,6 +1,6 @@
 FROM node:20-alpine AS base
 
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl sqlite
 
 # --- builder ---
 FROM base AS builder
@@ -26,6 +26,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/scripts/init.mjs ./init.mjs
+COPY --from=builder /app/scripts/backup.mjs ./backup.mjs
 
 RUN mkdir -p /data && chown nextjs:nodejs /data
 

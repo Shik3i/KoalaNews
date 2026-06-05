@@ -17,12 +17,30 @@ type AdminUser = {
   _count: { feeds: number };
 };
 
+type BackupInfo = {
+  name: string;
+  kind: 'daily' | 'weekly' | 'monthly';
+  sizeLabel: string;
+  createdAt: string;
+  downloadUrl: string;
+  restoreCommands: string;
+};
+
+type DatabaseInfo = {
+  sizeLabel: string;
+  backupDir: string;
+  backups: BackupInfo[];
+};
+
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const t = useTranslations('admin');
   const router = useRouter();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
+  const [database, setDatabase] = useState<DatabaseInfo | null>(null);
+  const [creatingBackup, setCreatingBackup] = useState(false);
+  const [selectedBackup, setSelectedBackup] = useState<BackupInfo | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
@@ -41,6 +59,7 @@ export default function AdminPage() {
     if (status === 'authenticated' && session?.user?.role === 'ADMIN') {
       fetchUsers();
       fetchSettings();
+      fetchDatabase();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session]);
@@ -84,6 +103,12 @@ export default function AdminPage() {
     else setError(t('loadError'));
   }
 
+  async function fetchDatabase() {
+    const res = await fetch('/api/admin/database');
+    if (res.ok) setDatabase(await res.json());
+    else setError(t('loadError'));
+  }
+
   async function toggleBan(user: AdminUser) {
     if (user.id === session?.user?.id) {
       setError(t('cannotChangeSelf'));
@@ -123,7 +148,9 @@ export default function AdminPage() {
       await fetchUsers();
     } else {
       const err = await safeJson(res);
-      setError(err.error === 'cannot_remove_last_admin' ? t('cannotRemoveLastAdmin') : t('actionError'));
+      setError(
+        err.error === 'cannot_remove_last_admin' ? t('cannotRemoveLastAdmin') : t('actionError'),
+      );
     }
   }
 
@@ -142,6 +169,22 @@ export default function AdminPage() {
     } else {
       setError(t('actionError'));
     }
+  }
+
+  async function createBackup() {
+    setCreatingBackup(true);
+    setMessage('');
+    setError('');
+    const res = await fetch('/api/admin/backups', { method: 'POST' });
+    if (res.ok) {
+      const nextDatabase = await res.json();
+      setDatabase(nextDatabase);
+      setSelectedBackup(nextDatabase.backups?.[0] ?? null);
+      setMessage(t('backupCreated'));
+    } else {
+      setError(t('backupError'));
+    }
+    setCreatingBackup(false);
   }
 
   async function safeJson(res: Response) {
@@ -183,6 +226,81 @@ export default function AdminPage() {
               className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${settings.allow_registration === 'true' ? 'translate-x-6' : ''}`}
             />
           </button>
+        </div>
+      </section>
+
+      <section className="mb-10">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">{t('database')}</h2>
+            <p className="text-sm text-gray-500">{t('backupHint')}</p>
+          </div>
+          <button
+            onClick={createBackup}
+            disabled={creatingBackup}
+            className="inline-flex h-10 items-center justify-center rounded bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {creatingBackup ? t('creatingBackup') : t('createBackup')}
+          </button>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+          <div className="rounded border border-gray-200 bg-white p-4">
+            <p className="text-sm text-gray-500">{t('databaseSize')}</p>
+            <p className="mt-2 text-2xl font-semibold">{database?.sizeLabel ?? '-'}</p>
+            <p className="mt-3 break-all text-xs text-gray-400">{database?.backupDir ?? ''}</p>
+          </div>
+
+          <div className="rounded border border-gray-200 bg-white p-4">
+            <h3 className="mb-3 text-sm font-semibold">{t('backups')}</h3>
+            {!database?.backups?.length ? (
+              <p className="text-sm text-gray-400">{t('noBackups')}</p>
+            ) : (
+              <div className="space-y-2">
+                {database.backups.map((backup) => (
+                  <div
+                    key={backup.name}
+                    className="flex flex-col gap-3 rounded border border-gray-100 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="font-mono text-xs text-gray-700">{backup.name}</p>
+                      <p className="mt-1 text-xs text-gray-400">
+                        {backup.kind} · {backup.sizeLabel} ·{' '}
+                        {new Date(backup.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <a
+                        href={backup.downloadUrl}
+                        className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        {t('download')}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBackup(backup)}
+                        className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        {t('restoreInstructions')}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {selectedBackup && (
+              <div className="mt-4 rounded border border-amber-200 bg-amber-50 p-3">
+                <p className="mb-2 text-sm font-semibold text-amber-900">
+                  {t('restoreInstructions')}
+                </p>
+                <p className="mb-3 text-xs text-amber-800">{t('restoreHint')}</p>
+                <pre className="overflow-x-auto rounded bg-gray-950 p-3 text-xs text-gray-100">
+                  {selectedBackup.restoreCommands}
+                </pre>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -242,7 +360,9 @@ export default function AdminPage() {
               <tbody className="divide-y divide-gray-100">
                 {users.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 text-xs font-mono text-gray-400">{user.id.slice(0, 8)}</td>
+                    <td className="px-3 py-2 text-xs font-mono text-gray-400">
+                      {user.id.slice(0, 8)}
+                    </td>
                     <td className="px-3 py-2">{user.name || '-'}</td>
                     <td className="px-3 py-2">{user.email}</td>
                     <td className="px-3 py-2">
@@ -285,17 +405,17 @@ export default function AdminPage() {
                   </tr>
                 ))}
               </tbody>
-              </table>
-              {nextCursor && (
-                <button
-                  onClick={loadMoreUsers}
-                  disabled={loading}
-                  className="w-full border border-gray-200 rounded px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 mt-3"
-                >
-                  {loading ? t('loadingMore') : t('loadMore')}
-                </button>
-              )}
-            </div>
+            </table>
+            {nextCursor && (
+              <button
+                onClick={loadMoreUsers}
+                disabled={loading}
+                className="w-full border border-gray-200 rounded px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 mt-3"
+              >
+                {loading ? t('loadingMore') : t('loadMore')}
+              </button>
+            )}
+          </div>
         )}
       </section>
     </div>

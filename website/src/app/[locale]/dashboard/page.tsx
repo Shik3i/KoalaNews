@@ -33,7 +33,9 @@ export default function DashboardPage() {
   const router = useRouter();
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [feedUrl, setFeedUrl] = useState('');
-  const [feedLanguage, setFeedLanguage] = useState(locale === 'de' ? 'de' : 'en');
+  const [feedLanguage, setFeedLanguage] = useState(
+    locale === 'de' || locale === 'fr' ? locale : 'en',
+  );
   const [adding, setAdding] = useState(false);
   const [loadingFeeds, setLoadingFeeds] = useState(false);
   const [error, setError] = useState('');
@@ -197,6 +199,7 @@ export default function DashboardPage() {
           >
             <option value="de">🇩🇪 Deutsch</option>
             <option value="en">🇬🇧 English</option>
+            <option value="fr">🇫🇷 Francais</option>
           </select>
           <button
             type="submit"

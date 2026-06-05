@@ -22,6 +22,7 @@ type ParsedFeed = {
 };
 
 const MAX_FEED_BYTES = 2 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
 const DEFAULT_FEEDS = {
   de: {
@@ -31,6 +32,10 @@ const DEFAULT_FEEDS = {
   en: {
     title: 'BBC News',
     url: 'https://feeds.bbci.co.uk/news/rss.xml',
+  },
+  fr: {
+    title: 'BFMTV',
+    url: 'https://www.bfmtv.com/rss/news-24-7/',
   },
 } as const;
 
@@ -163,8 +168,10 @@ function getItemImageUrl(item: FeedItem): string | null {
   return null;
 }
 
-export function normalizeFeedLanguage(value: unknown): 'de' | 'en' {
-  return value === 'de' ? 'de' : 'en';
+export type FeedLanguage = keyof typeof DEFAULT_FEEDS;
+
+export function normalizeFeedLanguage(value: unknown): FeedLanguage {
+  return value === 'de' || value === 'fr' ? value : 'en';
 }
 
 function buildNewArticles(items: FeedItem[], existingGuids: Set<string>, sourceFeedId: string) {
@@ -200,6 +207,53 @@ async function createArticles(data: ReturnType<typeof buildNewArticles>) {
   }
 }
 
+async function cacheArticleImages(data: ReturnType<typeof buildNewArticles>) {
+  const imageUrls = Array.from(new Set(data.map((item) => item.imageUrl).filter(isString))).slice(
+    0,
+    12,
+  );
+  await Promise.allSettled(imageUrls.map((imageUrl) => cacheImage(imageUrl)));
+}
+
+async function cacheImage(imageUrl: string) {
+  const sourceUrl = await normalizeExternalAssetUrl(imageUrl);
+  const existing = await prisma.imageCache.findUnique({ where: { sourceUrl } });
+  if (existing) return;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const response = await fetch(sourceUrl, {
+      headers: { 'User-Agent': 'KoalaNews/1.0' },
+      signal: controller.signal,
+    });
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!response.ok || !response.body || !contentType.startsWith('image/')) return;
+
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      received += value.byteLength;
+      if (received > MAX_IMAGE_BYTES) return;
+      chunks.push(value);
+    }
+
+    const data = Buffer.concat(chunks);
+    await prisma.imageCache.upsert({
+      where: { sourceUrl },
+      create: { sourceUrl, contentType, data },
+      update: { contentType, data, fetchedAt: new Date() },
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function fetchAndParseFeed(url: string): Promise<ParsedFeed> {
   const parser = new Parser();
   const feedText = await fetchFeedText(url);
@@ -222,7 +276,7 @@ export async function fetchAndParseFeed(url: string): Promise<ParsedFeed> {
   };
 }
 
-async function upsertSourceFeed(url: string, language: 'de' | 'en') {
+async function upsertSourceFeed(url: string, language: FeedLanguage) {
   return prisma.sourceFeed.upsert({
     where: { url },
     create: { url, language },
@@ -268,6 +322,7 @@ export async function saveFeed(userId: string, url: string, languageInput: unkno
     const articles = buildNewArticles(parsed.items, existingGuids, sourceFeed.id);
 
     await createArticles(articles);
+    await cacheArticleImages(articles);
   }
 
   return feed;
@@ -296,7 +351,9 @@ export async function ensureDefaultFeed(languageInput: unknown) {
   });
 
   if (parsed.items.length > 0) {
-    await createArticles(buildNewArticles(parsed.items, new Set(), sourceFeed.id));
+    const articles = buildNewArticles(parsed.items, new Set(), sourceFeed.id);
+    await createArticles(articles);
+    await cacheArticleImages(articles);
   }
 }
 
@@ -344,5 +401,6 @@ export async function refreshFeed(feedId: string) {
     const articles = buildNewArticles(parsed.items, existingGuids, sourceFeed.id);
 
     await createArticles(articles);
+    await cacheArticleImages(articles);
   }
 }
