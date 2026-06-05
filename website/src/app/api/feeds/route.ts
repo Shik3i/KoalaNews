@@ -3,7 +3,7 @@ import { asBoundedInt, asTrimmedString, getClientIp, jsonError, readJsonObject }
 import { runScheduledCleanup } from '@/lib/cleanup';
 import { prisma } from '@/lib/prisma';
 import { checkRateLimit } from '@/lib/rate-limit';
-import { saveFeed } from '@/lib/rss';
+import { normalizeFeedLanguage, saveFeed } from '@/lib/rss';
 import { requireAuth } from '@/lib/with-auth';
 
 export const GET = requireAuth(async (request, userId) => {
@@ -41,6 +41,7 @@ export const GET = requireAuth(async (request, userId) => {
       ...feed,
       title: feed.sourceFeed?.title ?? feed.title,
       description: feed.sourceFeed?.description ?? feed.description,
+      language: feed.sourceFeed?.language ?? feed.language,
       articles: feed.sourceFeed?.articles ?? [],
     })),
     nextCursor: feeds.length > take ? feeds[take].id : null,
@@ -55,11 +56,12 @@ export const POST = requireAuth(async (request, userId) => {
   try {
     const body = await readJsonObject(request);
     const url = asTrimmedString(body?.url, 2048);
+    const language = normalizeFeedLanguage(body?.language);
     if (!url) {
       return jsonError('invalid_url', 400);
     }
 
-    const feed = await saveFeed(userId, url);
+    const feed = await saveFeed(userId, url, language);
     runScheduledCleanup().catch(() => null);
     return NextResponse.json(feed, { status: 201 });
   } catch (error) {

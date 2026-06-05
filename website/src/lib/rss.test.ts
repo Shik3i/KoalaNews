@@ -45,7 +45,8 @@ describe('fetchAndParseFeed', () => {
   it('handles empty item lists', async () => {
     const { default: Parser } = await import('rss-parser');
     (new Parser() as unknown as ParserMock).parseString.mockResolvedValueOnce({
-      title: 'Empty Feed', items: [],
+      title: 'Empty Feed',
+      items: [],
     });
     const result = await fetchAndParseFeed('https://example.com/empty.xml');
     expect(result.items).toHaveLength(0);
@@ -58,15 +59,22 @@ describe('saveFeed', () => {
 
   beforeEach(() => {
     mockPrisma.feed.create.mockResolvedValue({
-      id: 'feed-1', url: feedUrl, title: 'Test Feed',
-      description: 'A test RSS feed', userId,
+      id: 'feed-1',
+      url: feedUrl,
+      title: 'Test Feed',
+      description: 'A test RSS feed',
+      userId,
       sourceFeedId: 'source-1',
     });
     mockPrisma.sourceFeed.upsert.mockResolvedValue({
-      id: 'source-1', url: feedUrl, title: 'Test Feed',
+      id: 'source-1',
+      url: feedUrl,
+      title: 'Test Feed',
     });
     mockPrisma.sourceFeed.update.mockResolvedValue({
-      id: 'source-1', url: feedUrl, title: 'Test Feed',
+      id: 'source-1',
+      url: feedUrl,
+      title: 'Test Feed',
     });
     mockPrisma.article.findMany.mockResolvedValue([]);
     mockPrisma.article.createMany.mockResolvedValue({ count: 2 });
@@ -79,6 +87,7 @@ describe('saveFeed', () => {
         url: feedUrl,
         title: 'Test Feed',
         description: 'A test RSS feed',
+        language: 'en',
         userId,
         sourceFeedId: 'source-1',
         lastFetchedAt: expect.any(Date),
@@ -115,7 +124,9 @@ describe('refreshFeed', () => {
 
   beforeEach(() => {
     mockPrisma.feed.findUnique.mockResolvedValue({
-      id: feedId, url: 'https://example.com/feed.xml', title: 'Test Feed',
+      id: feedId,
+      url: 'https://example.com/feed.xml',
+      title: 'Test Feed',
       lastFetchedAt: null,
       sourceFeed: {
         id: 'source-1',
@@ -136,7 +147,9 @@ describe('refreshFeed', () => {
   it('updates feed metadata', async () => {
     const { default: Parser } = await import('rss-parser');
     (new Parser() as unknown as ParserMock).parseString.mockResolvedValueOnce({
-      title: 'Updated Title', description: 'Updated Description', items: [],
+      title: 'Updated Title',
+      description: 'Updated Description',
+      items: [],
     });
     await refreshFeed(feedId);
     expect(mockPrisma.sourceFeed.update).toHaveBeenCalledWith({
@@ -144,6 +157,7 @@ describe('refreshFeed', () => {
       data: {
         title: 'Updated Title',
         description: 'Updated Description',
+        language: 'en',
         lastFetchedAt: expect.any(Date),
       },
     });
@@ -152,6 +166,7 @@ describe('refreshFeed', () => {
       data: {
         title: 'Updated Title',
         description: 'Updated Description',
+        language: 'en',
         lastFetchedAt: expect.any(Date),
       },
     });

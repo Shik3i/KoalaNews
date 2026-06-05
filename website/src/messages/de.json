@@ -20,11 +20,14 @@
     "darkMode": "Dark Mode aktivieren",
     "lightMode": "Dark Mode deaktivieren",
     "darkModeShort": "Dunkel",
-    "lightModeShort": "Hell"
+    "lightModeShort": "Hell",
+    "language": "Sprache",
+    "tagline": "Dein ruhiger News Reader"
   },
   "home": {
+    "eyebrow": "Kuratiert und lesbar",
     "title": "Öffentlicher Feed",
-    "subtitle": "Die neuesten Artikel aus allen Feeds",
+    "subtitle": "Ein klarerer Blick auf deine Quellen, ohne den typischen Feed-Lärm. Suche, filtere und lies in einer Oberfläche, die sich nach Reader statt Admin-Maske anfühlt.",
     "noArticles": "Noch keine Artikel vorhanden.",
     "fromFeed": "Quelle",
     "publishedAt": "Veröffentlicht am",
@@ -34,7 +37,12 @@
     "sortDate": "Neueste zuerst",
     "sortSource": "Quelle",
     "applyFilters": "Anwenden",
-    "loadMore": "Mehr laden"
+    "loadMore": "Mehr laden",
+    "filterToggle": "Suche und Filter",
+    "emptyEyebrow": "Noch leer",
+    "sectionEyebrow": "Live Feed",
+    "sectionTitle": "Aktuelle Artikel",
+    "results": "Treffer"
   },
   "auth": {
     "loginTitle": "Anmelden",
@@ -69,6 +77,7 @@
     "myArticles": "Meine Artikel",
     "addFeed": "Feed hinzufügen",
     "feedUrl": "Feed-URL",
+    "feedLanguage": "Feed-Sprache",
     "addButton": "Hinzufügen",
     "remove": "Entfernen",
     "noFeeds": "Noch keine Feeds hinterlegt.",
@@ -133,6 +142,7 @@
     "save": "Darstellung speichern",
     "saving": "Speichern...",
     "saved": "Darstellung gespeichert.",
+    "savedLocal": "Darstellung lokal gespeichert.",
     "loadError": "Darstellung konnte nicht geladen werden.",
     "saveError": "Darstellung konnte nicht gespeichert werden."
   },

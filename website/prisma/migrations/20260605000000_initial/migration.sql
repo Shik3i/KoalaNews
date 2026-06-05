@@ -21,6 +21,7 @@ CREATE TABLE "SourceFeed" (
   "url" TEXT NOT NULL,
   "title" TEXT,
   "description" TEXT,
+  "language" TEXT NOT NULL DEFAULT 'en',
   "lastFetchedAt" DATETIME,
   "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" DATETIME NOT NULL
@@ -31,6 +32,7 @@ CREATE TABLE "Feed" (
   "url" TEXT NOT NULL,
   "title" TEXT,
   "description" TEXT,
+  "language" TEXT NOT NULL DEFAULT 'en',
   "userId" TEXT NOT NULL,
   "sourceFeedId" TEXT,
   "lastFetchedAt" DATETIME,
@@ -110,8 +112,10 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 CREATE UNIQUE INDEX "SourceFeed_url_key" ON "SourceFeed"("url");
 CREATE INDEX "Feed_userId_idx" ON "Feed"("userId");
 CREATE INDEX "Feed_userId_createdAt_idx" ON "Feed"("userId", "createdAt");
+CREATE INDEX "Feed_language_idx" ON "Feed"("language");
 CREATE INDEX "Feed_sourceFeedId_idx" ON "Feed"("sourceFeedId");
 CREATE UNIQUE INDEX "Feed_userId_url_key" ON "Feed"("userId", "url");
+CREATE INDEX "SourceFeed_language_idx" ON "SourceFeed"("language");
 CREATE UNIQUE INDEX "Article_feedId_guid_key" ON "Article"("feedId", "guid");
 CREATE UNIQUE INDEX "Article_sourceFeedId_guid_key" ON "Article"("sourceFeedId", "guid");
 CREATE INDEX "Article_pubDate_idx" ON "Article"("pubDate");

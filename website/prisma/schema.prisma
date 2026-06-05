@@ -34,6 +34,7 @@ model Feed {
   url         String
   title       String?
   description String?
+  language    String    @default("en")
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   sourceFeedId String?
@@ -45,6 +46,7 @@ model Feed {
 
   @@index([userId])
   @@index([userId, createdAt])
+  @@index([language])
   @@index([sourceFeedId])
   @@unique([userId, url])
 }
@@ -54,11 +56,14 @@ model SourceFeed {
   url         String    @unique
   title       String?
   description String?
+  language    String    @default("en")
   lastFetchedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   subscriptions Feed[]
   articles    Article[]
+
+  @@index([language])
 }
 
 model Article {

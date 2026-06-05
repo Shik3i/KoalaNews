@@ -20,11 +20,14 @@
     "darkMode": "Enable dark mode",
     "lightMode": "Disable dark mode",
     "darkModeShort": "Dark",
-    "lightModeShort": "Light"
+    "lightModeShort": "Light",
+    "language": "Language",
+    "tagline": "Your calm news reader"
   },
   "home": {
+    "eyebrow": "Curated and readable",
     "title": "Public Feed",
-    "subtitle": "Latest articles from all feeds",
+    "subtitle": "A calmer way to scan your sources without the usual feed clutter. Search, filter, and read in a surface that feels like a reader instead of an admin screen.",
     "noArticles": "No articles yet.",
     "fromFeed": "Source",
     "publishedAt": "Published on",
@@ -34,7 +37,12 @@
     "sortDate": "Newest first",
     "sortSource": "Source",
     "applyFilters": "Apply",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "filterToggle": "Search and filters",
+    "emptyEyebrow": "Nothing yet",
+    "sectionEyebrow": "Live feed",
+    "sectionTitle": "Latest stories",
+    "results": "results"
   },
   "auth": {
     "loginTitle": "Login",
@@ -69,6 +77,7 @@
     "myArticles": "My Articles",
     "addFeed": "Add Feed",
     "feedUrl": "Feed URL",
+    "feedLanguage": "Feed language",
     "addButton": "Add",
     "remove": "Remove",
     "noFeeds": "No feeds added yet.",
@@ -133,6 +142,7 @@
     "save": "Save appearance",
     "saving": "Saving...",
     "saved": "Appearance saved.",
+    "savedLocal": "Appearance saved locally.",
     "loadError": "Could not load appearance settings.",
     "saveError": "Could not save appearance settings."
   },

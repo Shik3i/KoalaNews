@@ -12,26 +12,33 @@ import {
   DESIGN_OPTIONS,
   FONT_SCALE_OPTIONS,
   THEME_OPTIONS,
+  normalizeAppearance,
   type AppearanceSettings,
 } from '@/lib/appearance';
-import { useRouter } from '@/i18n/navigation';
+
+const LOCAL_APPEARANCE_KEY = 'koalanews:appearance';
 
 export default function AppearancePage() {
   const { status } = useSession();
   const t = useTranslations('appearance');
   const locale = useLocale();
-  const router = useRouter();
   const [settings, setSettings] = useState<AppearanceSettings>(DEFAULT_APPEARANCE);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (status === 'unauthenticated') router.push('/login');
-  }, [status, router]);
+    if (status === 'loading') return;
+    if (status === 'unauthenticated') {
+      try {
+        const stored = localStorage.getItem(LOCAL_APPEARANCE_KEY);
+        setSettings(stored ? normalizeAppearance(JSON.parse(stored)) : DEFAULT_APPEARANCE);
+      } catch {
+        setSettings(DEFAULT_APPEARANCE);
+      }
+      return;
+    }
 
-  useEffect(() => {
-    if (status !== 'authenticated') return;
     fetch('/api/preferences')
       .then((res) => (res.ok ? res.json() : DEFAULT_APPEARANCE))
       .then((data) => setSettings({ ...DEFAULT_APPEARANCE, ...data }))
@@ -47,6 +54,13 @@ export default function AppearancePage() {
     setSaving(true);
     setMessage('');
     setError('');
+
+    if (status !== 'authenticated') {
+      localStorage.setItem(LOCAL_APPEARANCE_KEY, JSON.stringify(settings));
+      setMessage(t('savedLocal'));
+      setSaving(false);
+      return;
+    }
 
     const res = await fetch('/api/preferences', {
       method: 'PUT',
@@ -87,18 +101,48 @@ export default function AppearancePage() {
           <section>
             <h2 className="text-lg font-semibold mb-3">{t('visualDesign')}</h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              <SelectField label={t('theme')} value={settings.theme} options={THEME_OPTIONS} onChange={(value) => update('theme', value)} />
-              <SelectField label={t('design')} value={settings.design} options={DESIGN_OPTIONS} onChange={(value) => update('design', value)} />
-              <SelectField label={t('density')} value={settings.density} options={DENSITY_OPTIONS} onChange={(value) => update('density', value)} />
-              <SelectField label={t('fontScale')} value={settings.fontScale} options={FONT_SCALE_OPTIONS} onChange={(value) => update('fontScale', value)} />
-              <SelectField label={t('accentColor')} value={settings.accentColor} options={ACCENT_OPTIONS} onChange={(value) => update('accentColor', value)} />
+              <SelectField
+                label={t('theme')}
+                value={settings.theme}
+                options={THEME_OPTIONS}
+                onChange={(value) => update('theme', value)}
+              />
+              <SelectField
+                label={t('design')}
+                value={settings.design}
+                options={DESIGN_OPTIONS}
+                onChange={(value) => update('design', value)}
+              />
+              <SelectField
+                label={t('density')}
+                value={settings.density}
+                options={DENSITY_OPTIONS}
+                onChange={(value) => update('density', value)}
+              />
+              <SelectField
+                label={t('fontScale')}
+                value={settings.fontScale}
+                options={FONT_SCALE_OPTIONS}
+                onChange={(value) => update('fontScale', value)}
+              />
+              <SelectField
+                label={t('accentColor')}
+                value={settings.accentColor}
+                options={ACCENT_OPTIONS}
+                onChange={(value) => update('accentColor', value)}
+              />
             </div>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold mb-3">{t('cardDesign')}</h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              <SelectField label={t('cardStyle')} value={settings.cardStyle} options={CARD_STYLE_OPTIONS} onChange={(value) => update('cardStyle', value)} />
+              <SelectField
+                label={t('cardStyle')}
+                value={settings.cardStyle}
+                options={CARD_STYLE_OPTIONS}
+                onChange={(value) => update('cardStyle', value)}
+              />
               <label className="block text-sm">
                 <span className="font-medium text-gray-700">{t('descriptionLines')}</span>
                 <input
@@ -116,11 +160,31 @@ export default function AppearancePage() {
           <section>
             <h2 className="text-lg font-semibold mb-3">{t('visibleFields')}</h2>
             <div className="grid gap-2 sm:grid-cols-2">
-              <Toggle label={t('showImages')} checked={settings.showImages} onChange={(value) => update('showImages', value)} />
-              <Toggle label={t('showSource')} checked={settings.showSource} onChange={(value) => update('showSource', value)} />
-              <Toggle label={t('showDate')} checked={settings.showDate} onChange={(value) => update('showDate', value)} />
-              <Toggle label={t('showDescription')} checked={settings.showDescription} onChange={(value) => update('showDescription', value)} />
-              <Toggle label={t('showReadMore')} checked={settings.showReadMore} onChange={(value) => update('showReadMore', value)} />
+              <Toggle
+                label={t('showImages')}
+                checked={settings.showImages}
+                onChange={(value) => update('showImages', value)}
+              />
+              <Toggle
+                label={t('showSource')}
+                checked={settings.showSource}
+                onChange={(value) => update('showSource', value)}
+              />
+              <Toggle
+                label={t('showDate')}
+                checked={settings.showDate}
+                onChange={(value) => update('showDate', value)}
+              />
+              <Toggle
+                label={t('showDescription')}
+                checked={settings.showDescription}
+                onChange={(value) => update('showDescription', value)}
+              />
+              <Toggle
+                label={t('showReadMore')}
+                checked={settings.showReadMore}
+                onChange={(value) => update('showReadMore', value)}
+              />
             </div>
           </section>
 

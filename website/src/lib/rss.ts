@@ -23,6 +23,16 @@ type ParsedFeed = {
 
 const MAX_FEED_BYTES = 2 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
+const DEFAULT_FEEDS = {
+  de: {
+    title: 'Tagesschau',
+    url: 'https://www.tagesschau.de/xml/rss2/',
+  },
+  en: {
+    title: 'BBC News',
+    url: 'https://feeds.bbci.co.uk/news/rss.xml',
+  },
+} as const;
 
 function isBlockedHostname(hostname: string): boolean {
   const lower = hostname.toLowerCase();
@@ -153,6 +163,10 @@ function getItemImageUrl(item: FeedItem): string | null {
   return null;
 }
 
+export function normalizeFeedLanguage(value: unknown): 'de' | 'en' {
+  return value === 'de' ? 'de' : 'en';
+}
+
 function buildNewArticles(items: FeedItem[], existingGuids: Set<string>, sourceFeedId: string) {
   const seen = new Set(existingGuids);
   return items.flatMap((item) => {
@@ -208,13 +222,18 @@ export async function fetchAndParseFeed(url: string): Promise<ParsedFeed> {
   };
 }
 
-export async function saveFeed(userId: string, url: string) {
-  const normalizedUrl = await normalizeFeedUrl(url);
-  const sourceFeed = await prisma.sourceFeed.upsert({
-    where: { url: normalizedUrl },
-    create: { url: normalizedUrl },
-    update: {},
+async function upsertSourceFeed(url: string, language: 'de' | 'en') {
+  return prisma.sourceFeed.upsert({
+    where: { url },
+    create: { url, language },
+    update: { language },
   });
+}
+
+export async function saveFeed(userId: string, url: string, languageInput: unknown = 'en') {
+  const language = normalizeFeedLanguage(languageInput);
+  const normalizedUrl = await normalizeFeedUrl(url);
+  const sourceFeed = await upsertSourceFeed(normalizedUrl, language);
   const parsed = await fetchAndParseFeed(normalizedUrl);
 
   const feed = await prisma.feed.create({
@@ -222,6 +241,7 @@ export async function saveFeed(userId: string, url: string) {
       url: normalizedUrl,
       title: parsed.title,
       description: parsed.description,
+      language,
       userId,
       sourceFeedId: sourceFeed.id,
       lastFetchedAt: new Date(),
@@ -233,6 +253,7 @@ export async function saveFeed(userId: string, url: string) {
     data: {
       title: parsed.title,
       description: parsed.description,
+      language,
       lastFetchedAt: new Date(),
     },
   });
@@ -250,6 +271,33 @@ export async function saveFeed(userId: string, url: string) {
   }
 
   return feed;
+}
+
+export async function ensureDefaultFeed(languageInput: unknown) {
+  const language = normalizeFeedLanguage(languageInput);
+  const defaultFeed = DEFAULT_FEEDS[language];
+  const normalizedUrl = await normalizeFeedUrl(defaultFeed.url);
+  const sourceFeed = await upsertSourceFeed(normalizedUrl, language);
+
+  const articleCount = await prisma.article.count({ where: { sourceFeedId: sourceFeed.id } });
+  const recentlyFetched =
+    sourceFeed.lastFetchedAt && Date.now() - sourceFeed.lastFetchedAt.getTime() < 15 * 60_000;
+  if (articleCount > 0 || recentlyFetched) return;
+
+  const parsed = await fetchAndParseFeed(normalizedUrl);
+  await prisma.sourceFeed.update({
+    where: { id: sourceFeed.id },
+    data: {
+      title: parsed.title ?? defaultFeed.title,
+      description: parsed.description,
+      language,
+      lastFetchedAt: new Date(),
+    },
+  });
+
+  if (parsed.items.length > 0) {
+    await createArticles(buildNewArticles(parsed.items, new Set(), sourceFeed.id));
+  }
 }
 
 export async function refreshFeed(feedId: string) {
@@ -271,6 +319,7 @@ export async function refreshFeed(feedId: string) {
     data: {
       title: parsed.title,
       description: parsed.description,
+      language: normalizeFeedLanguage(sourceFeed.language),
       lastFetchedAt: new Date(),
     },
   });
@@ -280,6 +329,7 @@ export async function refreshFeed(feedId: string) {
     data: {
       title: parsed.title,
       description: parsed.description,
+      language: normalizeFeedLanguage(sourceFeed.language),
       lastFetchedAt: new Date(),
     },
   });

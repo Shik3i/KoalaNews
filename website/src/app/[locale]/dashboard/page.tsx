@@ -13,6 +13,7 @@ type Feed = {
   url: string;
   title: string | null;
   description: string | null;
+  language: string;
   articles: Article[];
 };
 
@@ -32,6 +33,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [feedUrl, setFeedUrl] = useState('');
+  const [feedLanguage, setFeedLanguage] = useState(locale === 'de' ? 'de' : 'en');
   const [adding, setAdding] = useState(false);
   const [loadingFeeds, setLoadingFeeds] = useState(false);
   const [error, setError] = useState('');
@@ -95,7 +97,7 @@ export default function DashboardPage() {
     const res = await fetch('/api/feeds', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: feedUrl }),
+      body: JSON.stringify({ url: feedUrl, language: feedLanguage }),
     });
 
     if (res.ok) {
@@ -178,7 +180,7 @@ export default function DashboardPage() {
       <section className="mb-10">
         <h2 className="text-lg font-semibold mb-3">{t('myFeeds')}</h2>
 
-        <form onSubmit={addFeed} className="flex gap-2 mb-4">
+        <form onSubmit={addFeed} className="grid gap-2 mb-4 sm:grid-cols-[1fr_150px_auto]">
           <input
             type="url"
             value={feedUrl}
@@ -187,6 +189,15 @@ export default function DashboardPage() {
             required
             className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
+          <select
+            value={feedLanguage}
+            onChange={(e) => setFeedLanguage(e.target.value)}
+            className="flag-emoji border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            aria-label={t('feedLanguage')}
+          >
+            <option value="de">🇩🇪 Deutsch</option>
+            <option value="en">🇬🇧 English</option>
+          </select>
           <button
             type="submit"
             disabled={adding}
@@ -236,7 +247,10 @@ export default function DashboardPage() {
                 <div className="min-w-0">
                   <p className="font-medium text-sm truncate">{feed.title || feed.url}</p>
                   <p className="text-xs text-gray-400 truncate">{feed.url}</p>
-                  <p className="text-xs text-gray-400">{feed.articles.length} articles</p>
+                  <p className="text-xs text-gray-400">
+                    {feed.language === 'de' ? '🇩🇪 Deutsch' : '🇬🇧 English'} · {feed.articles.length}{' '}
+                    articles
+                  </p>
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <button
