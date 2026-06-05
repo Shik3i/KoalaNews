@@ -1,6 +1,8 @@
 # KoalaNews
 
 > RSS-Reader mit Mehrbenutzer-Support, i18n, lokaler SQLite-Persistenz und privacy-safe Asset-Caching.
+>
+> **Live-Demo:** [https://news.koalastuff.net](https://news.koalastuff.net)
 
 ## Projektstruktur
 
