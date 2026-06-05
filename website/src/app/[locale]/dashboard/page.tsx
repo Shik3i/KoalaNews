@@ -203,6 +203,7 @@ export default function DashboardPage() {
         )}
 
         <div className="flex flex-wrap gap-2 mb-4">
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
             href="/api/feeds/opml"
             className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 rounded px-2 py-1"
@@ -233,13 +234,9 @@ export default function DashboardPage() {
                 className="bg-white border border-gray-200 rounded p-4 flex items-center justify-between"
               >
                 <div className="min-w-0">
-                  <p className="font-medium text-sm truncate">
-                    {feed.title || feed.url}
-                  </p>
+                  <p className="font-medium text-sm truncate">{feed.title || feed.url}</p>
                   <p className="text-xs text-gray-400 truncate">{feed.url}</p>
-                  <p className="text-xs text-gray-400">
-                    {feed.articles.length} articles
-                  </p>
+                  <p className="text-xs text-gray-400">{feed.articles.length} articles</p>
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <button
@@ -283,18 +280,18 @@ export default function DashboardPage() {
                 <ArticleCard
                   key={article.id}
                   title={article.title}
-	                  description={article.description}
-	                  link={article.link}
-	                  imageUrl={article.imageUrl}
-	                  feedTitle={feed.title}
-	                  pubDate={article.pubDate ? new Date(article.pubDate) : null}
-	                  locale={locale}
-	                  readMoreLabel="Read more"
-	                  fromFeedLabel="Source"
-	                  publishedAtLabel="Published"
-	                  appearance={appearance}
-	                />
-              ))
+                  description={article.description}
+                  link={article.link}
+                  imageUrl={article.imageUrl}
+                  feedTitle={feed.title}
+                  pubDate={article.pubDate ? new Date(article.pubDate) : null}
+                  locale={locale}
+                  readMoreLabel="Read more"
+                  fromFeedLabel="Source"
+                  publishedAtLabel="Published"
+                  appearance={appearance}
+                />
+              )),
             )}
           </div>
         )}
