@@ -23,17 +23,16 @@ type OptionValue = AppearanceSettings[keyof AppearanceSettings] & string;
 
 function applyActiveTheme(themeOption: string) {
   if (typeof window === 'undefined') return;
-  let resolved: 'light' | 'dark';
-  if (themeOption === 'dark') {
-    resolved = 'dark';
-  } else if (themeOption === 'light') {
-    resolved = 'light';
-  } else {
+  let resolvedTheme = themeOption;
+  if (themeOption === 'system') {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    resolved = prefersDark ? 'dark' : 'light';
+    resolvedTheme = prefersDark ? 'dark' : 'light';
   }
-  document.documentElement.classList.toggle('dark', resolved === 'dark');
-  document.documentElement.dataset.theme = resolved;
+
+  const darkThemes = ['dark', 'nord', 'forest', 'cyberpunk', 'dracula'];
+  const isDark = darkThemes.includes(resolvedTheme);
+  document.documentElement.classList.toggle('dark', isDark);
+  document.documentElement.dataset.theme = resolvedTheme;
   localStorage.setItem('theme', themeOption);
 }
 
@@ -447,6 +446,16 @@ function formatOption(option: string, locale: string) {
       system: 'System',
       light: 'Hell',
       dark: 'Dunkel',
+      sepia: 'Sepia',
+      nord: 'Nordisch',
+      forest: 'Wald',
+      cyberpunk: 'Cyberpunk',
+      dracula: 'Dracula',
+      glassmorphism: 'Glasschmelze',
+      retrowave: 'Retrowelle',
+      purple: 'Lila',
+      orange: 'Orange',
+      cyan: 'Cyan',
     },
     en: {
       clean: 'Clean',
@@ -470,6 +479,16 @@ function formatOption(option: string, locale: string) {
       system: 'System',
       light: 'Light',
       dark: 'Dark',
+      sepia: 'Sepia',
+      nord: 'Nord',
+      forest: 'Forest',
+      cyberpunk: 'Cyberpunk',
+      dracula: 'Dracula',
+      glassmorphism: 'Glassmorphism',
+      retrowave: 'Retrowave',
+      purple: 'Purple',
+      orange: 'Orange',
+      cyan: 'Cyan',
     },
     fr: {
       clean: 'Clair',
@@ -493,6 +512,16 @@ function formatOption(option: string, locale: string) {
       system: 'Systeme',
       light: 'Clair',
       dark: 'Sombre',
+      sepia: 'Sépia',
+      nord: 'Nordique',
+      forest: 'Forêt',
+      cyberpunk: 'Cyberpunk',
+      dracula: 'Dracula',
+      glassmorphism: 'Glassmorphisme',
+      retrowave: 'Retrowave',
+      purple: 'Violet',
+      orange: 'Orange',
+      cyan: 'Cyan',
     },
   };
 

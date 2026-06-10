@@ -28,10 +28,15 @@ export default async function LocaleLayout({
             __html: `
               (function () {
                 try {
-                  var stored = localStorage.getItem('theme');
-                  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  var resolved = stored === 'dark' || stored === 'light' ? stored : (prefersDark ? 'dark' : 'light');
-                  document.documentElement.classList.toggle('dark', resolved === 'dark');
+                  var stored = localStorage.getItem('theme') || 'system';
+                  var resolved = stored;
+                  if (stored === 'system') {
+                    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    resolved = prefersDark ? 'dark' : 'light';
+                  }
+                  var darkThemes = ['dark', 'nord', 'forest', 'cyberpunk', 'dracula'];
+                  var isDark = darkThemes.indexOf(resolved) !== -1;
+                  document.documentElement.classList.toggle('dark', isDark);
                   document.documentElement.dataset.theme = resolved;
                 } catch (error) {
                   document.documentElement.classList.remove('dark');

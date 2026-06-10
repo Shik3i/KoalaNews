@@ -109,7 +109,16 @@ export default function ArticleCard({
   ].join(' ');
 
   const innerClass = [
-    'w-full bg-white dark:bg-gray-950 relative z-10 transition-transform duration-200 select-none',
+    'w-full relative z-10 transition-transform duration-200 select-none',
+    settings.design === 'glassmorphism'
+      ? 'bg-white/10 dark:bg-slate-900/20 backdrop-blur-md'
+      : settings.design === 'retrowave'
+        ? 'bg-transparent'
+        : settings.design === 'terminal'
+          ? 'bg-[#020617] text-[#bbf7d0]'
+          : settings.design === 'newspaper' || settings.design === 'high-contrast'
+            ? 'bg-white text-black'
+            : 'bg-white dark:bg-gray-950',
     settings.cardStyle === 'minimal'
       ? 'p-4'
       : settings.cardStyle === 'dense' || settings.density === 'dense'
