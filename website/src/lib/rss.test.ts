@@ -10,7 +10,7 @@ vi.mock('node:dns/promises', () => ({
 const mockPrisma = vi.hoisted(() => ({
   feed: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   sourceFeed: { upsert: vi.fn(), update: vi.fn() },
-  article: { createMany: vi.fn(), findMany: vi.fn() },
+  article: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn() },
   imageCache: { findUnique: vi.fn(), upsert: vi.fn() },
 }));
 
@@ -78,6 +78,7 @@ describe('saveFeed', () => {
       title: 'Test Feed',
     });
     mockPrisma.article.findMany.mockResolvedValue([]);
+    mockPrisma.article.create.mockResolvedValue({});
     mockPrisma.article.createMany.mockResolvedValue({ count: 2 });
     mockPrisma.imageCache.findUnique.mockResolvedValue({ sourceUrl: 'cached' });
   });
@@ -99,10 +100,9 @@ describe('saveFeed', () => {
 
   it('creates article records for each item', async () => {
     await saveFeed(userId, feedUrl);
-    expect(mockPrisma.article.createMany).toHaveBeenCalled();
-    const args = mockPrisma.article.createMany.mock.calls[0][0];
-    expect(args.data).toHaveLength(2);
-    expect(args.data[0].title).toBe('Article 1');
+    expect(mockPrisma.article.create).toHaveBeenCalledTimes(2);
+    const args = mockPrisma.article.create.mock.calls[0][0];
+    expect(args.data.title).toBe('Article 1');
   });
 
   it('skips items without guid and without link', async () => {
@@ -116,8 +116,7 @@ describe('saveFeed', () => {
       ],
     });
     await saveFeed(userId, feedUrl);
-    const args = mockPrisma.article.createMany.mock.calls[0][0];
-    expect(args.data).toHaveLength(2);
+    expect(mockPrisma.article.create).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -143,6 +142,7 @@ describe('refreshFeed', () => {
     });
     mockPrisma.feed.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.article.findMany.mockResolvedValue([]);
+    mockPrisma.article.create.mockResolvedValue({});
     mockPrisma.article.createMany.mockResolvedValue({ count: 1 });
     mockPrisma.imageCache.findUnique.mockResolvedValue({ sourceUrl: 'cached' });
   });
@@ -177,7 +177,7 @@ describe('refreshFeed', () => {
 
   it('creates new articles', async () => {
     await refreshFeed(feedId);
-    expect(mockPrisma.article.createMany).toHaveBeenCalled();
+    expect(mockPrisma.article.create).toHaveBeenCalled();
   });
 
   it('throws if feed not found', async () => {

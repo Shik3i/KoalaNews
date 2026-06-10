@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
 import { compare, hash } from 'bcryptjs';
-import {
-  asOptionalTrimmedString,
-  asTrimmedString,
-  jsonError,
-  readJsonObject,
-} from '@/lib/api';
+import { jsonError, readJsonObject } from '@/lib/api';
 import { getPepper, pepperPassword } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/with-auth';
@@ -30,30 +25,54 @@ export const PATCH = requireAuth(async (request, userId) => {
   const body = await readJsonObject(request);
   if (!body) return jsonError('invalid_body', 400);
 
-  const name = asOptionalTrimmedString(body.name, 80);
-  const image = asOptionalTrimmedString(body.image, 2048);
-  const currentPassword = asOptionalTrimmedString(body.currentPassword, 512);
-  const newPassword = asOptionalTrimmedString(body.newPassword, 512);
-
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return jsonError('not_found', 404);
 
   const data: { name?: string | null; image?: string | null; password?: string } = {};
-  if (body.name !== undefined) data.name = name;
-  if (body.image !== undefined) {
-    if (image && (!image.startsWith('/') || image.startsWith('//'))) {
-      return jsonError('invalid_image_path', 400);
+
+  if (body.name !== undefined) {
+    if (body.name === null || body.name === '') {
+      data.name = null;
+    } else if (typeof body.name === 'string') {
+      const trimmed = body.name.trim();
+      if (trimmed.length > 80) return jsonError('name_too_long', 400);
+      data.name = trimmed || null;
+    } else {
+      return jsonError('invalid_name', 400);
     }
-    data.image = image;
   }
 
-  if (newPassword !== null) {
+  if (body.image !== undefined) {
+    if (body.image === null || body.image === '') {
+      data.image = null;
+    } else if (typeof body.image === 'string') {
+      const trimmed = body.image.trim();
+      if (trimmed.length > 2048) return jsonError('image_path_too_long', 400);
+      if (!trimmed.startsWith('/') || trimmed.startsWith('//')) {
+        return jsonError('invalid_image_path', 400);
+      }
+      data.image = trimmed || null;
+    } else {
+      return jsonError('invalid_image', 400);
+    }
+  }
+
+  if (body.newPassword !== undefined && body.newPassword !== null && body.newPassword !== '') {
+    if (typeof body.newPassword !== 'string') return jsonError('invalid_new_password', 400);
+    const newPassword = body.newPassword.trim();
     if (newPassword.length < 8) return jsonError('weak_password', 400);
+    if (newPassword.length > 512) return jsonError('password_too_long', 400);
 
     const pepper = await getPepper();
     if (user.password) {
-      const current = asTrimmedString(currentPassword, 512);
-      if (!current || !(await compare(pepperPassword(current, pepper), user.password))) {
+      if (typeof body.currentPassword !== 'string') {
+        return jsonError('invalid_current_password', 400);
+      }
+      const currentPassword = body.currentPassword.trim();
+      if (
+        currentPassword.length > 512 ||
+        !(await compare(pepperPassword(currentPassword, pepper), user.password))
+      ) {
         return jsonError('invalid_current_password', 400);
       }
     }

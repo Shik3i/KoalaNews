@@ -1,5 +1,7 @@
 import { lookup } from 'node:dns/promises';
 import net from 'node:net';
+import dns from 'node:dns';
+import { Agent } from 'undici';
 import Parser from 'rss-parser';
 import { prisma } from './prisma';
 
@@ -72,6 +74,30 @@ function isPrivateIp(address: string): boolean {
   return true;
 }
 
+export const safeDispatcher = new Agent({
+  connect: {
+    lookup: (hostname, options, callback) => {
+      if (isBlockedHostname(hostname)) {
+        callback(new Error('Blocked hostname'), '', 0);
+        return;
+      }
+      dns.lookup(hostname, options, (err, address, family) => {
+        if (err) {
+          callback(err, '', 0);
+          return;
+        }
+        const addresses = Array.isArray(address) ? address : [{ address, family }];
+        const isUnsafe = addresses.some((addr) => isPrivateIp(addr.address));
+        if (isUnsafe) {
+          callback(new Error('Unsafe IP address resolved'), '', 0);
+          return;
+        }
+        callback(null, address, family);
+      });
+    },
+  },
+});
+
 async function assertSafeFeedUrl(url: URL) {
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new Error('Unsupported feed URL protocol');
@@ -108,7 +134,8 @@ async function fetchFeedText(input: string, redirects = 0): Promise<string> {
       headers: { 'User-Agent': 'KoalaNews/1.0' },
       redirect: 'manual',
       signal: controller.signal,
-    });
+      dispatcher: safeDispatcher,
+    } as any);
 
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get('location');
@@ -176,7 +203,6 @@ function getItemImageUrl(item: FeedItem): string | null {
   return null;
 }
 
-
 export type FeedLanguage = keyof typeof DEFAULT_FEEDS;
 
 export function normalizeFeedLanguage(value: unknown): FeedLanguage {
@@ -209,11 +235,13 @@ function isString(value: string | null): value is string {
 
 async function createArticles(data: ReturnType<typeof buildNewArticles>) {
   if (data.length === 0) return;
-  try {
-    await prisma.article.createMany({ data });
-  } catch (error) {
-    if ((error as { code?: string }).code !== 'P2002') throw error;
-  }
+  await Promise.allSettled(
+    data.map((item) =>
+      prisma.article.create({ data: item }).catch((err) => {
+        if ((err as { code?: string }).code !== 'P2002') throw err;
+      }),
+    ),
+  );
 }
 
 async function cacheArticleImages(data: ReturnType<typeof buildNewArticles>) {
@@ -235,7 +263,8 @@ async function cacheImage(imageUrl: string) {
     const response = await fetch(sourceUrl, {
       headers: { 'User-Agent': 'KoalaNews/1.0' },
       signal: controller.signal,
-    });
+      dispatcher: safeDispatcher,
+    } as any);
     const contentType = response.headers.get('content-type') ?? '';
     if (!response.ok || !response.body || !contentType.startsWith('image/')) return;
 

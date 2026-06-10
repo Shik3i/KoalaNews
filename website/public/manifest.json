@@ -1,0 +1,16 @@
+{
+  "name": "KoalaNews",
+  "short_name": "KoalaNews",
+  "description": "Premium RSS Reader App",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4efe7",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/preview-card.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

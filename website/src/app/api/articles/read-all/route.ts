@@ -3,23 +3,13 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/with-auth';
 
 export const POST = requireAuth(async (_request, userId) => {
-  const articles = await prisma.article.findMany({
-    where: { sourceFeed: { subscriptions: { some: { userId } } } },
-    select: { id: true },
-  });
+  const count = await prisma.$executeRaw`
+    INSERT OR IGNORE INTO ArticleRead (userId, articleId, readAt)
+    SELECT ${userId}, a.id, CURRENT_TIMESTAMP
+    FROM Article a
+    JOIN Feed f ON a.sourceFeedId = f.sourceFeedId
+    WHERE f.userId = ${userId}
+  `;
 
-  const existing = await prisma.articleRead.findMany({
-    where: { userId },
-    select: { articleId: true },
-  });
-  const existingIds = new Set(existing.map((item) => item.articleId));
-  const unread = articles.filter((article) => !existingIds.has(article.id));
-
-  if (unread.length > 0) {
-    await prisma.articleRead.createMany({
-      data: unread.map((article) => ({ userId, articleId: article.id })),
-    });
-  }
-
-  return NextResponse.json({ ok: true, marked: unread.length });
+  return NextResponse.json({ ok: true, marked: count });
 });

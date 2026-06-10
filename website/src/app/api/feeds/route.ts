@@ -32,8 +32,8 @@ export const GET = requireAuth(async (request, userId) => {
               pubDate: true,
               reads: {
                 where: { userId },
-                select: { userId: true }
-              }
+                select: { userId: true },
+              },
             },
           },
         },
@@ -44,22 +44,42 @@ export const GET = requireAuth(async (request, userId) => {
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
+  const items = await Promise.all(
+    feeds.slice(0, take).map(async (feed) => {
+      const unreadCount = feed.sourceFeedId
+        ? await prisma.article.count({
+            where: {
+              sourceFeedId: feed.sourceFeedId,
+              reads: {
+                none: {
+                  userId,
+                },
+              },
+            },
+          })
+        : 0;
+
+      return {
+        ...feed,
+        title: feed.sourceFeed?.title ?? feed.title,
+        description: feed.sourceFeed?.description ?? feed.description,
+        language: feed.sourceFeed?.language ?? feed.language,
+        unreadCount,
+        articles: (feed.sourceFeed?.articles ?? []).map((article) => ({
+          id: article.id,
+          title: article.title,
+          description: article.description,
+          link: article.link,
+          imageUrl: article.imageUrl,
+          pubDate: article.pubDate,
+          read: article.reads.length > 0,
+        })),
+      };
+    }),
+  );
+
   return NextResponse.json({
-    items: feeds.slice(0, take).map((feed) => ({
-      ...feed,
-      title: feed.sourceFeed?.title ?? feed.title,
-      description: feed.sourceFeed?.description ?? feed.description,
-      language: feed.sourceFeed?.language ?? feed.language,
-      articles: (feed.sourceFeed?.articles ?? []).map((article) => ({
-        id: article.id,
-        title: article.title,
-        description: article.description,
-        link: article.link,
-        imageUrl: article.imageUrl,
-        pubDate: article.pubDate,
-        read: article.reads.length > 0,
-      })),
-    })),
+    items,
     nextCursor: feeds.length > take ? feeds[take].id : null,
   });
 });
@@ -87,7 +107,7 @@ export const POST = requireAuth(async (request, userId) => {
       if (cat) {
         updatedFeed = await prisma.feed.update({
           where: { id: feed.id },
-          data: { categoryId }
+          data: { categoryId },
         });
       }
     }

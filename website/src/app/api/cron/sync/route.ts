@@ -31,12 +31,9 @@ async function runSync() {
   const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60_000);
   const sourceFeeds = await prisma.sourceFeed.findMany({
     where: {
-      OR: [
-        { lastFetchedAt: null },
-        { lastFetchedAt: { lt: twoHoursAgo } }
-      ]
+      OR: [{ lastFetchedAt: null }, { lastFetchedAt: { lt: twoHoursAgo } }],
     },
-    take: 10
+    take: 10,
   });
 
   let updatedCount = 0;
@@ -69,12 +66,14 @@ async function runSync() {
           where: { sourceFeedId: sourceFeed.id },
           select: { guid: true },
         });
-        const existingGuids = new Set(existing.map((a) => a.guid).filter((g): g is string => typeof g === 'string'));
+        const existingGuids = new Set(
+          existing.map((a) => a.guid).filter((g): g is string => typeof g === 'string'),
+        );
 
         // Manually build new articles to insert
         const newArticles = parsed.items.flatMap((item) => {
           if (!item.guid || existingGuids.has(item.guid)) return [];
-          
+
           // Helper to find image url
           let imageUrl: string | null = null;
           if (item.enclosure?.url && item.enclosure.type?.startsWith('image/')) {
@@ -99,15 +98,22 @@ async function runSync() {
               description: item.contentSnippet ?? item.content ?? null,
               content: item.content ?? null,
               imageUrl,
-              pubDate: item.isoDate || item.pubDate ? new Date(item.isoDate ?? item.pubDate!) : new Date(),
+              pubDate:
+                item.isoDate || item.pubDate ? new Date(item.isoDate ?? item.pubDate!) : new Date(),
               guid: item.guid,
               sourceFeedId: sourceFeed.id,
-            }
+            },
           ];
         });
 
         if (newArticles.length > 0) {
-          await prisma.article.createMany({ data: newArticles });
+          await Promise.allSettled(
+            newArticles.map((item) =>
+              prisma.article.create({ data: item }).catch((err) => {
+                if ((err as { code?: string }).code !== 'P2002') throw err;
+              }),
+            ),
+          );
         }
       }
       updatedCount++;

@@ -20,7 +20,7 @@ export default async function StatisticsPage() {
       <h1 className="text-2xl font-bold mb-2">{t('title')}</h1>
       <p className="text-gray-500 mb-8">{t('subtitle')}</p>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
         <StatCard label={t('users')} value={userCount} />
         <StatCard label={t('feeds')} value={feedCount} />
         <StatCard label={t('articles')} value={articleCount} />
@@ -54,7 +54,9 @@ export default async function StatisticsPage() {
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="bg-white border border-gray-200 dark:bg-gray-950 dark:border-gray-800 rounded-lg p-4 text-center">
-      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{value.toLocaleString()}</p>
+      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+        {value.toLocaleString()}
+      </p>
       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{label}</p>
     </div>
   );

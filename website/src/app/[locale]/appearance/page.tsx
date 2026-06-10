@@ -21,6 +21,22 @@ const PREVIEW_IMAGE = '/preview-card.svg';
 
 type OptionValue = AppearanceSettings[keyof AppearanceSettings] & string;
 
+function applyActiveTheme(themeOption: string) {
+  if (typeof window === 'undefined') return;
+  let resolved: 'light' | 'dark';
+  if (themeOption === 'dark') {
+    resolved = 'dark';
+  } else if (themeOption === 'light') {
+    resolved = 'light';
+  } else {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    resolved = prefersDark ? 'dark' : 'light';
+  }
+  document.documentElement.classList.toggle('dark', resolved === 'dark');
+  document.documentElement.dataset.theme = resolved;
+  localStorage.setItem('theme', themeOption);
+}
+
 export default function AppearancePage() {
   const { status } = useSession();
   const t = useTranslations('appearance');
@@ -55,9 +71,11 @@ export default function AppearancePage() {
         const nextSettings = stored ? normalizeAppearance(JSON.parse(stored)) : DEFAULT_APPEARANCE;
         setSettings(nextSettings);
         setLoadedSettings(nextSettings);
+        applyActiveTheme(nextSettings.theme);
       } catch {
         setSettings(DEFAULT_APPEARANCE);
         setLoadedSettings(DEFAULT_APPEARANCE);
+        applyActiveTheme(DEFAULT_APPEARANCE.theme);
       }
       return;
     }
@@ -68,12 +86,16 @@ export default function AppearancePage() {
         const nextSettings = { ...DEFAULT_APPEARANCE, ...data };
         setSettings(nextSettings);
         setLoadedSettings(nextSettings);
+        applyActiveTheme(nextSettings.theme);
       })
       .catch(() => setError(t('loadError')));
   }, [effectiveStatus, t]);
 
   function update<K extends keyof AppearanceSettings>(key: K, value: AppearanceSettings[K]) {
     setSettings((current) => ({ ...current, [key]: value }));
+    if (key === 'theme' && typeof value === 'string') {
+      applyActiveTheme(value);
+    }
   }
 
   async function saveSettings(e: React.FormEvent) {
@@ -81,6 +103,8 @@ export default function AppearancePage() {
     setSaving(true);
     setMessage('');
     setError('');
+
+    applyActiveTheme(settings.theme);
 
     if (effectiveStatus !== 'authenticated') {
       localStorage.setItem(LOCAL_APPEARANCE_KEY, JSON.stringify(settings));
@@ -109,6 +133,7 @@ export default function AppearancePage() {
 
   function resetSettings() {
     setSettings(DEFAULT_APPEARANCE);
+    applyActiveTheme(DEFAULT_APPEARANCE.theme);
     setMessage('');
     setError('');
   }

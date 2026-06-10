@@ -17,6 +17,7 @@ type Feed = {
   language: string;
   categoryId: string | null;
   articles: Article[];
+  unreadCount?: number;
 };
 
 type Article = {
@@ -70,8 +71,12 @@ export default function DashboardPage() {
 
   // Interactive Feature States
   const [selectedArticleIndex, setSelectedArticleIndex] = useState<number | null>(null);
-  const [selectedArticleIdsForBulk, setSelectedArticleIdsForBulk] = useState<Set<string>>(new Set());
-  const [activeReaderArticle, setActiveReaderArticle] = useState<(Article & { feedTitle: string | null }) | null>(null);
+  const [selectedArticleIdsForBulk, setSelectedArticleIdsForBulk] = useState<Set<string>>(
+    new Set(),
+  );
+  const [activeReaderArticle, setActiveReaderArticle] = useState<
+    (Article & { feedTitle: string | null }) | null
+  >(null);
   const [speakingArticleId, setSpeakingArticleId] = useState<string | null>(null);
 
   // Status & Feedback States
@@ -113,24 +118,27 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const fetchFeeds = useCallback(async (catId: string | null = null) => {
-    setLoadingFeeds(true);
-    setError('');
-    let url = '/api/feeds?take=40';
-    if (catId) {
-      url += `&categoryId=${encodeURIComponent(catId)}`;
-    }
-    const res = await fetch(url);
-    if (!res.ok) {
-      setError(t('loadError'));
+  const fetchFeeds = useCallback(
+    async (catId: string | null = null) => {
+      setLoadingFeeds(true);
+      setError('');
+      let url = '/api/feeds?take=40';
+      if (catId) {
+        url += `&categoryId=${encodeURIComponent(catId)}`;
+      }
+      const res = await fetch(url);
+      if (!res.ok) {
+        setError(t('loadError'));
+        setLoadingFeeds(false);
+        return;
+      }
+      const data = await res.json();
+      setFeeds(data.items ?? []);
+      setNextCursor(data.nextCursor ?? null);
       setLoadingFeeds(false);
-      return;
-    }
-    const data = await res.json();
-    setFeeds(data.items ?? []);
-    setNextCursor(data.nextCursor ?? null);
-    setLoadingFeeds(false);
-  }, [t]);
+    },
+    [t],
+  );
 
   // Handle redirect if unauthenticated
   useEffect(() => {
@@ -153,8 +161,8 @@ export default function DashboardPage() {
     }
   }, [status, fetchFeeds, fetchCategories, fetchSmartFeeds, selectedCategoryId]);
 
-  async function loadMoreFeeds() {
-    if (!nextCursor) return;
+  const loadMoreFeeds = useCallback(async () => {
+    if (!nextCursor || loadingFeeds) return;
     setLoadingFeeds(true);
     let url = `/api/feeds?take=40&cursor=${encodeURIComponent(nextCursor)}`;
     if (selectedCategoryId) {
@@ -170,7 +178,40 @@ export default function DashboardPage() {
     setFeeds((current) => [...current, ...(data.items ?? [])]);
     setNextCursor(data.nextCursor ?? null);
     setLoadingFeeds(false);
-  }
+  }, [nextCursor, loadingFeeds, selectedCategoryId, t]);
+
+  const handleOpmlImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setError('');
+    setMessage('Importing OPML...');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/feeds/opml/import', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to import OPML');
+      }
+
+      const data = await res.json();
+      setMessage(`Successfully imported ${data.importedCount} feeds!`);
+      fetchCategories();
+      fetchFeeds(selectedCategoryId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'OPML import failed');
+      setMessage('');
+    } finally {
+      e.target.value = '';
+    }
+  };
 
   // Add category
   async function handleAddCategory(e: React.FormEvent) {
@@ -195,7 +236,15 @@ export default function DashboardPage() {
 
   // Delete Category
   async function handleDeleteCategory(catId: string) {
-    if (!window.confirm(getLabel('confirmDeleteCategory', 'Möchtest du diese Kategorie löschen? Die Feeds bleiben erhalten.'))) return;
+    if (
+      !window.confirm(
+        getLabel(
+          'confirmDeleteCategory',
+          'Möchtest du diese Kategorie löschen? Die Feeds bleiben erhalten.',
+        ),
+      )
+    )
+      return;
     setError('');
     const res = await fetch(`/api/categories/${catId}`, { method: 'DELETE' });
     if (res.ok) {
@@ -293,12 +342,29 @@ export default function DashboardPage() {
 
     if (res.ok) {
       setFeeds((current) =>
-        current.map((f) => ({
-          ...f,
-          articles: f.articles.map((a) =>
+        current.map((f) => {
+          const hasArticle = f.articles.some((a) => a.id === articleId);
+          if (!hasArticle) return f;
+
+          const articlesUpdated = f.articles.map((a) =>
             a.id === articleId ? { ...a, read: !currentRead } : a,
-          ),
-        })),
+          );
+
+          let unreadChange = 0;
+          if (currentRead) {
+            unreadChange = 1;
+          } else {
+            unreadChange = -1;
+          }
+
+          const newUnreadCount = Math.max(0, (f.unreadCount ?? 0) + unreadChange);
+
+          return {
+            ...f,
+            unreadCount: newUnreadCount,
+            articles: articlesUpdated,
+          };
+        }),
       );
     }
   }
@@ -328,12 +394,26 @@ export default function DashboardPage() {
 
     if (res.ok) {
       setFeeds((current) =>
-        current.map((f) => ({
-          ...f,
-          articles: f.articles.map((a) =>
-            idsArray.includes(a.id) ? { ...a, read } : a,
-          ),
-        })),
+        current.map((f) => {
+          const articlesToUpdate = f.articles.filter((a) => idsArray.includes(a.id));
+          if (articlesToUpdate.length === 0) return f;
+
+          let unreadChange = 0;
+          articlesToUpdate.forEach((a) => {
+            const wasRead = a.read ?? false;
+            if (wasRead !== read) {
+              unreadChange += read ? -1 : 1;
+            }
+          });
+
+          const newUnreadCount = Math.max(0, (f.unreadCount ?? 0) + unreadChange);
+
+          return {
+            ...f,
+            unreadCount: newUnreadCount,
+            articles: f.articles.map((a) => (idsArray.includes(a.id) ? { ...a, read } : a)),
+          };
+        }),
       );
       setSelectedArticleIdsForBulk(new Set());
     } else {
@@ -362,7 +442,9 @@ export default function DashboardPage() {
       await fetchSmartFeeds();
     } else {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? getLabel('smartFeedAddError', 'Smart Feed konnte nicht gespeichert werden.'));
+      setError(
+        data.error ?? getLabel('smartFeedAddError', 'Smart Feed konnte nicht gespeichert werden.'),
+      );
     }
   }
 
@@ -392,7 +474,7 @@ export default function DashboardPage() {
     const text = `${article.title}. Quelle: ${feedTitle ?? ''}. ${article.description ? article.description.replace(/<[^>]*>/g, '') : ''}`;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = locale === 'de' ? 'de-DE' : locale === 'fr' ? 'fr-FR' : 'en-US';
-    
+
     utterance.onend = () => setSpeakingArticleId(null);
     utterance.onerror = () => setSpeakingArticleId(null);
 
@@ -402,10 +484,10 @@ export default function DashboardPage() {
 
   // Gather and Filter Articles
   const getFilteredArticles = useCallback(() => {
-    let list: (Article & { feedTitle: string | null })[] = [];
+    let list: (Article & { feedTitle: string | null; feedUrl?: string | null })[] = [];
     feeds.forEach((feed) => {
       feed.articles.forEach((art) => {
-        list.push({ ...art, feedTitle: feed.title || feed.url });
+        list.push({ ...art, feedTitle: feed.title || feed.url, feedUrl: feed.url });
       });
     });
 
@@ -426,7 +508,8 @@ export default function DashboardPage() {
             !sf.query ||
             (a.title?.toLowerCase().includes(sf.query.toLowerCase()) ?? false) ||
             (a.description?.toLowerCase().includes(sf.query.toLowerCase()) ?? false);
-          const matchesFeed = !sf.feedId || a.feedTitle?.toLowerCase().includes(sf.feedId.toLowerCase());
+          const matchesFeed =
+            !sf.feedId || a.feedTitle?.toLowerCase().includes(sf.feedId.toLowerCase());
           return matchesQuery && matchesFeed;
         });
       }
@@ -518,6 +601,65 @@ export default function DashboardPage() {
     }
   }, [selectedArticleIndex]);
 
+  // Infinite Scroll Observer
+  useEffect(() => {
+    if (!nextCursor || loadingFeeds) return;
+    const sentinel = document.getElementById('infinite-scroll-trigger');
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMoreFeeds();
+        }
+      },
+      { rootMargin: '200px' },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [nextCursor, loadingFeeds, loadMoreFeeds]);
+
+  // Auto-Read-on-Scroll Observer
+  useEffect(() => {
+    const visibleTimers = new Map<string, NodeJS.Timeout>();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const articleId = entry.target.getAttribute('data-article-id');
+          const isRead = entry.target.getAttribute('data-article-read') === 'true';
+
+          if (!articleId || isRead) return;
+
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            if (!visibleTimers.has(articleId)) {
+              const timer = setTimeout(() => {
+                toggleArticleRead(articleId, false);
+              }, 1500);
+              visibleTimers.set(articleId, timer);
+            }
+          } else {
+            const timer = visibleTimers.get(articleId);
+            if (timer) {
+              clearTimeout(timer);
+              visibleTimers.delete(articleId);
+            }
+          }
+        });
+      },
+      { threshold: [0.5] },
+    );
+
+    const elements = document.querySelectorAll('[data-article-id]');
+    elements.forEach((el) => observer.observe(el));
+
+    return () => {
+      observer.disconnect();
+      visibleTimers.forEach((timer) => clearTimeout(timer));
+    };
+  }, [filteredArticles]);
+
   // Bulk selection toggler
   function toggleBulkSelection(articleId: string) {
     setSelectedArticleIdsForBulk((current) => {
@@ -566,14 +708,19 @@ export default function DashboardPage() {
             >
               <span>📁 {getLabel('allFeeds', 'Alle Feeds')}</span>
               <span className="text-xs bg-gray-100 dark:bg-slate-800 text-gray-400 px-1.5 py-0.5 rounded">
-                {feeds.length}
+                {feeds.reduce((sum, f) => sum + (f.unreadCount ?? 0), 0)}
               </span>
             </button>
 
             {categories.map((cat) => {
-              const count = feeds.filter((f) => f.categoryId === cat.id).length;
+              const unreadCount = feeds
+                .filter((f) => f.categoryId === cat.id)
+                .reduce((sum, f) => sum + (f.unreadCount ?? 0), 0);
               return (
-                <div key={cat.id} className="group flex items-center justify-between rounded-xl hover:bg-gray-50 dark:hover:bg-slate-900">
+                <div
+                  key={cat.id}
+                  className="group flex items-center justify-between rounded-xl hover:bg-gray-50 dark:hover:bg-slate-900"
+                >
                   <button
                     onClick={() => {
                       setSelectedCategoryId(cat.id);
@@ -587,7 +734,9 @@ export default function DashboardPage() {
                   >
                     📂 {cat.name}
                   </button>
-                  <span className="text-xs text-gray-400 px-2 group-hover:hidden">{count}</span>
+                  <span className="text-xs text-gray-400 px-2 group-hover:hidden">
+                    {unreadCount}
+                  </span>
                   <button
                     onClick={() => handleDeleteCategory(cat.id)}
                     className="hidden text-xs text-red-500 hover:text-red-700 px-2 group-hover:block transition"
@@ -606,11 +755,13 @@ export default function DashboardPage() {
               placeholder={getLabel('newFolder', 'Neuer Ordner...')}
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
+              aria-label={getLabel('newFolder', 'Neuer Ordner')}
               className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-slate-900"
             />
             <button
               type="submit"
               className="rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+              aria-label={getLabel('addFolder', 'Ordner hinzufügen')}
             >
               +
             </button>
@@ -628,7 +779,10 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-1">
               {smartFeeds.map((sf) => (
-                <div key={sf.id} className="group flex items-center justify-between rounded-xl hover:bg-gray-50 dark:hover:bg-slate-900">
+                <div
+                  key={sf.id}
+                  className="group flex items-center justify-between rounded-xl hover:bg-gray-50 dark:hover:bg-slate-900"
+                >
                   <button
                     onClick={() => {
                       setSelectedSmartFeedId(sf.id);
@@ -659,9 +813,14 @@ export default function DashboardPage() {
 
         {/* Help box */}
         <section className="rounded-3xl border border-dashed border-gray-200 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-slate-900/40">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">⌨️ Shortcuts</h3>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+            ⌨️ Shortcuts
+          </h3>
           <p className="text-xs leading-relaxed text-gray-400">
-            {getLabel('keyboardHelp', 'J/K: Navigieren • M: Gelesen toggeln • O: Im Tab öffnen • V: Lese-Modus • R: Update')}
+            {getLabel(
+              'keyboardHelp',
+              'J/K: Navigieren • M: Gelesen toggeln • O: Im Tab öffnen • V: Lese-Modus • R: Update',
+            )}
           </p>
         </section>
       </aside>
@@ -693,6 +852,7 @@ export default function DashboardPage() {
               onChange={(e) => setFeedUrl(e.target.value)}
               placeholder="https://example.com/feed.xml"
               required
+              aria-label="Feed URL"
               className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1 text-xs outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-slate-900 dark:text-[var(--page-fg)]"
             />
             <select
@@ -709,7 +869,7 @@ export default function DashboardPage() {
               value={feedCategoryId}
               onChange={(e) => setFeedCategoryId(e.target.value)}
               className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1 text-xs outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-slate-900 dark:text-[var(--page-fg)]"
-              aria-label="Kategorie auswählen"
+              aria-label={getLabel('selectCategory', 'Kategorie auswählen')}
             >
               <option value="">-- {getLabel('noCategory', 'Kein Ordner')} --</option>
               {categories.map((c) => (
@@ -750,6 +910,7 @@ export default function DashboardPage() {
                     setSearchQuery(e.target.value);
                     setSelectedSmartFeedId(null);
                   }}
+                  aria-label="Artikel durchsuchen"
                   className="w-[180px] rounded-xl border border-gray-200 bg-gray-50 pl-7 pr-2.5 py-1 text-xs outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-slate-900 dark:text-[var(--page-fg)]"
                 />
                 <span className="absolute left-2.5 top-1.5 text-xs text-gray-400">🔍</span>
@@ -765,13 +926,16 @@ export default function DashboardPage() {
                     setSelectedSmartFeedId(null);
                   }}
                   list="dashboard-feed-sources"
+                  aria-label="Quelle filtern"
                   className="w-[150px] rounded-xl border border-gray-200 bg-gray-50 pl-7 pr-2.5 py-1 text-xs outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-slate-900 dark:text-[var(--page-fg)]"
                 />
                 <span className="absolute left-2.5 top-1.5 text-xs text-gray-400">📰</span>
                 <datalist id="dashboard-feed-sources">
-                  {Array.from(new Set(feeds.map((f) => f.title || f.url).filter(Boolean))).map((title) => (
-                    <option key={title} value={title} />
-                  ))}
+                  {Array.from(new Set(feeds.map((f) => f.title || f.url).filter(Boolean))).map(
+                    (title) => (
+                      <option key={title} value={title} />
+                    ),
+                  )}
                 </datalist>
               </div>
 
@@ -810,6 +974,19 @@ export default function DashboardPage() {
               >
                 📤 OPML
               </a>
+              <input
+                type="file"
+                accept=".opml,xml"
+                style={{ display: 'none' }}
+                id="opml-import-input"
+                onChange={handleOpmlImport}
+              />
+              <button
+                onClick={() => document.getElementById('opml-import-input')?.click()}
+                className="rounded-xl border border-gray-200 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                📥 Import
+              </button>
             </div>
           </div>
 
@@ -852,7 +1029,10 @@ export default function DashboardPage() {
           {loadingFeeds && feeds.length === 0 ? (
             <div className="space-y-2">
               {[0, 1, 2].map((item) => (
-                <div key={item} className="h-16 bg-gray-100 rounded-2xl animate-pulse dark:bg-slate-900" />
+                <div
+                  key={item}
+                  className="h-16 bg-gray-100 rounded-2xl animate-pulse dark:bg-slate-900"
+                />
               ))}
             </div>
           ) : feeds.length === 0 ? (
@@ -865,12 +1045,30 @@ export default function DashboardPage() {
                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-gray-100 bg-gray-50/30 p-4 rounded-2xl dark:border-gray-800 dark:bg-slate-900/30 hover:border-gray-200 transition"
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/api/favicon?url=${encodeURIComponent(feed.url)}`}
+                        alt=""
+                        className="w-4 h-4 rounded-sm object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
                       <p className="font-semibold text-sm truncate text-gray-900 dark:text-white">
                         {feed.title || feed.url}
                       </p>
+                      {feed.unreadCount !== undefined && feed.unreadCount > 0 && (
+                        <span className="text-xs bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 font-semibold px-2 py-0.5 rounded-full">
+                          {feed.unreadCount}
+                        </span>
+                      )}
                       <span className="text-xs bg-gray-100 dark:bg-slate-800 text-gray-500 px-1.5 py-0.5 rounded-full">
-                        {feed.language === 'de' ? '🇩🇪 DE' : feed.language === 'fr' ? '🇫🇷 FR' : '🇬🇧 EN'}
+                        {feed.language === 'de'
+                          ? '🇩🇪 DE'
+                          : feed.language === 'fr'
+                            ? '🇫🇷 FR'
+                            : '🇬🇧 EN'}
                       </span>
                     </div>
                     <p className="text-xs text-gray-400 truncate mt-0.5">{feed.url}</p>
@@ -880,6 +1078,7 @@ export default function DashboardPage() {
                     <select
                       value={feed.categoryId || ''}
                       onChange={(e) => moveFeedToCategory(feed.id, e.target.value || null)}
+                      aria-label={getLabel('assignFolder', 'Ordner zuweisen')}
                       className="rounded-xl border border-gray-200 bg-white px-2 py-1 text-xs outline-none dark:border-gray-800 dark:bg-slate-900"
                     >
                       <option value="">Kein Ordner</option>
@@ -922,7 +1121,9 @@ export default function DashboardPage() {
         {/* Articles List section */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">{t('myArticles')}</h2>
+            <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
+              {t('myArticles')}
+            </h2>
             <button
               onClick={selectAllArticlesForBulk}
               className="text-xs text-blue-600 hover:underline font-semibold"
@@ -936,7 +1137,12 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {filteredArticles.map((article, idx) => (
-                <div key={article.id} id={`article-card-${idx}`}>
+                <div
+                  key={article.id}
+                  id={`article-card-${idx}`}
+                  data-article-id={article.id}
+                  data-article-read={article.read ? 'true' : 'false'}
+                >
                   <ArticleCard
                     id={article.id}
                     title={article.title}
@@ -944,6 +1150,7 @@ export default function DashboardPage() {
                     link={article.link}
                     imageUrl={article.imageUrl}
                     feedTitle={article.feedTitle}
+                    feedUrl={article.feedUrl}
                     pubDate={article.pubDate ? new Date(article.pubDate) : null}
                     locale={locale}
                     readMoreLabel="Read more"
@@ -962,6 +1169,14 @@ export default function DashboardPage() {
                   />
                 </div>
               ))}
+              {nextCursor && (
+                <div
+                  id="infinite-scroll-trigger"
+                  className="h-10 flex items-center justify-center py-6"
+                >
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                </div>
+              )}
             </div>
           )}
         </section>
@@ -981,6 +1196,12 @@ export default function DashboardPage() {
           link={activeReaderArticle.link}
         />
       )}
+      {/* Accessibility Polite live region for keyboard article selection */}
+      <div className="sr-only" aria-live="polite">
+        {selectedArticleIndex !== null && filteredArticles[selectedArticleIndex]
+          ? `Article ${selectedArticleIndex + 1} of ${filteredArticles.length} selected: ${filteredArticles[selectedArticleIndex].title}`
+          : ''}
+      </div>
     </div>
   );
 }

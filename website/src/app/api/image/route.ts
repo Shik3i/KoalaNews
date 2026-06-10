@@ -1,6 +1,6 @@
 import { jsonError } from '@/lib/api';
 import { prisma } from '@/lib/prisma';
-import { normalizeExternalAssetUrl } from '@/lib/rss';
+import { normalizeExternalAssetUrl, safeDispatcher } from '@/lib/rss';
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -34,7 +34,8 @@ export async function GET(request: Request) {
     const response = await fetch(sourceUrl, {
       headers: { 'User-Agent': 'KoalaNews/1.0' },
       signal: controller.signal,
-    });
+      dispatcher: safeDispatcher,
+    } as any);
     const contentType = response.headers.get('content-type') ?? '';
     if (!response.ok || !response.body || !contentType.startsWith('image/')) {
       return jsonError('invalid_image', 422);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import DOMPurify from 'isomorphic-dompurify';
 
 type ReaderModeModalProps = {
   isOpen: boolean;
@@ -13,6 +14,28 @@ type ReaderModeModalProps = {
   locale: string;
   link?: string | null;
 };
+
+function decodeHtmlEntities(text: string): string {
+  if (!text) return '';
+  const decoded = text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&#39;/g, "'");
+
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(decoded, 'text/html');
+      return doc.documentElement.textContent || decoded;
+    } catch {
+      // ignore
+    }
+  }
+  return decoded;
+}
 
 export default function ReaderModeModal({
   isOpen,
@@ -28,7 +51,7 @@ export default function ReaderModeModal({
   const [fontSize, setFontSize] = useState(16); // in pixels
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  
+
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
@@ -58,12 +81,19 @@ export default function ReaderModeModal({
 
   if (!isOpen) return null;
 
+  const cleanDescription = description
+    ? decodeHtmlEntities(description.replace(/<[^>]*>/g, ''))
+    : '';
+  const cleanContent = content ? decodeHtmlEntities(content.replace(/<[^>]*>/g, '')) : '';
+
   const textToRead = [
-    title,
-    feedTitle ? `Quelle: ${feedTitle}` : '',
-    description ? description.replace(/<[^>]*>/g, '') : '',
-    content ? content.replace(/<[^>]*>/g, '') : ''
-  ].filter(Boolean).join('. ');
+    title ? decodeHtmlEntities(title) : '',
+    feedTitle ? `Quelle: ${decodeHtmlEntities(feedTitle)}` : '',
+    cleanDescription,
+    cleanContent,
+  ]
+    .filter(Boolean)
+    .join('. ');
 
   function startSpeech() {
     if (!synthRef.current) return;
@@ -72,7 +102,7 @@ export default function ReaderModeModal({
     const utterance = new SpeechSynthesisUtterance(textToRead);
     // detect language or fallback
     utterance.lang = locale === 'de' ? 'de-DE' : locale === 'fr' ? 'fr-FR' : 'en-US';
-    
+
     utterance.onend = () => {
       setIsSpeaking(false);
       setIsPaused(false);
@@ -109,7 +139,7 @@ export default function ReaderModeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm dark:bg-slate-950/80">
-      <div 
+      <div
         className="flex h-full max-h-[85vh] w-full max-w-3xl flex-col rounded-[2rem] border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-slate-950"
         role="dialog"
         aria-modal="true"
@@ -119,7 +149,7 @@ export default function ReaderModeModal({
           <div className="flex items-center gap-4">
             {/* Font Size controls */}
             <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl dark:bg-slate-900 border border-gray-100 dark:border-gray-800/50">
-              <button 
+              <button
                 onClick={() => setFontSize(Math.max(12, fontSize - 2))}
                 className="grid h-8 w-8 place-items-center rounded-lg text-sm font-medium hover:bg-white dark:hover:bg-slate-800 transition"
                 title="Schrift verkleinern"
@@ -127,7 +157,7 @@ export default function ReaderModeModal({
                 A-
               </button>
               <span className="text-xs px-2 font-mono text-gray-500">{fontSize}px</span>
-              <button 
+              <button
                 onClick={() => setFontSize(Math.min(24, fontSize + 2))}
                 className="grid h-8 w-8 place-items-center rounded-lg text-sm font-medium hover:bg-white dark:hover:bg-slate-800 transition"
                 title="Schrift vergrößern"
@@ -173,8 +203,11 @@ export default function ReaderModeModal({
             </div>
           </div>
 
-          <button 
-            onClick={() => { stopSpeech(); onClose(); }}
+          <button
+            onClick={() => {
+              stopSpeech();
+              onClose();
+            }}
             className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-gray-500 transition"
             aria-label="Schließen"
           >
@@ -207,19 +240,19 @@ export default function ReaderModeModal({
               )}
             </header>
 
-            <div 
+            <div
               className="prose prose-slate dark:prose-invert max-w-none text-gray-700 dark:text-gray-200"
               style={{ fontSize: `${fontSize}px` }}
             >
               {description && !content && (
-                <div 
-                  dangerouslySetInnerHTML={{ __html: description }}
+                <div
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(description) }}
                   className="space-y-4"
                 />
               )}
               {content && (
-                <div 
-                  dangerouslySetInnerHTML={{ __html: content }}
+                <div
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }}
                   className="space-y-4"
                 />
               )}

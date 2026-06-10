@@ -12,28 +12,32 @@ export const POST = requireAuth(async (request, userId) => {
     return jsonError('invalid_article_ids', 400);
   }
 
+  if (articleIds.length > 200) {
+    return jsonError('batch_too_large', 400);
+  }
+
   if (read) {
     const existing = await prisma.articleRead.findMany({
       where: {
         userId,
-        articleId: { in: articleIds }
+        articleId: { in: articleIds },
       },
-      select: { articleId: true }
+      select: { articleId: true },
     });
-    const existingIds = new Set(existing.map(e => e.articleId));
-    const toCreate = articleIds.filter(id => !existingIds.has(id));
+    const existingIds = new Set(existing.map((e) => e.articleId));
+    const toCreate = articleIds.filter((id) => !existingIds.has(id));
 
     if (toCreate.length > 0) {
       await prisma.articleRead.createMany({
-        data: toCreate.map(id => ({ userId, articleId: id }))
+        data: toCreate.map((id) => ({ userId, articleId: id })),
       });
     }
   } else {
     await prisma.articleRead.deleteMany({
       where: {
         userId,
-        articleId: { in: articleIds }
-      }
+        articleId: { in: articleIds },
+      },
     });
   }
 

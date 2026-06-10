@@ -52,17 +52,31 @@ function getAuthorizeIp(request: unknown): string {
   return 'unknown';
 }
 
-async function findOrCreateOAuthUser(profile: { email: string; name?: string | null; image?: string | null }) {
-  return prisma.user.upsert({
-    where: { email: profile.email },
-    create: {
+async function findOrCreateOAuthUser(profile: {
+  email: string;
+  name?: string | null;
+  image?: string | null;
+}) {
+  const existing = await prisma.user.findUnique({ where: { email: profile.email } });
+  if (existing) {
+    const data: { name?: string | null; image?: string | null } = {};
+    if (!existing.name && profile.name) data.name = profile.name;
+    if (!existing.image && profile.image) data.image = profile.image;
+
+    if (Object.keys(data).length > 0) {
+      return prisma.user.update({
+        where: { email: profile.email },
+        data,
+      });
+    }
+    return existing;
+  }
+
+  return prisma.user.create({
+    data: {
       email: profile.email,
       name: profile.name || profile.email.split('@')[0],
       image: profile.image,
-    },
-    update: {
-      name: profile.name ?? undefined,
-      image: profile.image ?? undefined,
     },
   });
 }
@@ -89,22 +103,21 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null;
         if (!(await checkRateLimit(`login:${getAuthorizeIp(request)}`, 10, 60_000))) return null;
-        if (!(await checkRateLimit(`login-email:${credentials.email.toLowerCase()}`, 20, 15 * 60_000))) {
+
+        const trimmedEmail = credentials.email.trim().toLowerCase();
+        if (!(await checkRateLimit(`login-email:${trimmedEmail}`, 20, 15 * 60_000))) {
           return null;
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email.trim().toLowerCase() },
+          where: { email: trimmedEmail },
         });
         if (!user) return null;
         if (user.banned) return null;
         if (!user.password) return null;
 
         const pepper = await getPepper();
-        const isValid = await compare(
-          pepperPassword(credentials.password, pepper),
-          user.password,
-        );
+        const isValid = await compare(pepperPassword(credentials.password, pepper), user.password);
         if (!isValid) return null;
 
         return {
