@@ -1,5 +1,9 @@
 import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import { PrismaLibSql } from '@prisma/adapter-libsql';
+
+const url = process.env.DATABASE_URL || 'file:./dev.db';
+const adapter = new PrismaLibSql({ url });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const articles = await prisma.article.findMany({

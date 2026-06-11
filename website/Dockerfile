@@ -24,9 +24,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/scripts/init.mjs ./init.mjs
 COPY --from=builder /app/scripts/backup.mjs ./backup.mjs
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 RUN mkdir -p /data && chown nextjs:nodejs /data
 
@@ -38,4 +39,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_URL="file:/data/koalanews.db"
 
-CMD ["sh", "-c", "npx prisma@7.8.0 db push --skip-generate && node init.mjs && node server.js"]
+CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js db push && node init.mjs && node server.js"]
