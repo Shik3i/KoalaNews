@@ -29,12 +29,12 @@ export async function POST(request: Request) {
     },
   });
 
-  if (process.env.NODE_ENV === 'production') {
-    console.log(`[password-reset] Request for email: ${email}. Token: ${token}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[password-reset] Token for ${email}: ${token}`);
   }
 
   return NextResponse.json({
     ok: true,
-    ...(process.env.NODE_ENV === 'production' ? {} : { resetToken: token }),
+    ...(process.env.NODE_ENV !== 'production' ? { resetToken: token } : {}),
   });
 }

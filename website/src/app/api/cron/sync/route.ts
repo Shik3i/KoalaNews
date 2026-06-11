@@ -6,9 +6,9 @@ import { fetchAndParseFeed, normalizeFeedLanguage } from '@/lib/rss';
 function isAuthorized(request: Request): boolean {
   const authHeader = request.headers.get('authorization');
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  const secret = process.env.CRON_SECRET || process.env.NEXTAUTH_SECRET || 'koalanews-secret';
+  const secret = process.env.CRON_SECRET || process.env.NEXTAUTH_SECRET;
 
-  return token === secret;
+  return !!secret && token === secret;
 }
 
 export async function GET(request: Request) {

@@ -38,4 +38,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_URL="file:/data/koalanews.db"
 
-CMD ["sh", "-c", "npx prisma@6.4.1 db push --skip-generate && node init.mjs && node server.js"]
+CMD ["sh", "-c", "npx prisma@7.8.0 db push --skip-generate && node init.mjs && node server.js"]

@@ -5,7 +5,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 const config = {
   output: 'standalone',
-  serverExternalPackages: ['@prisma/client', 'bcryptjs'],
+  serverExternalPackages: ['@prisma/client', '@prisma/adapter-libsql', 'bcryptjs'],
   async headers() {
     return [
       {
