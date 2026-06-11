@@ -20,14 +20,21 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# Prisma-Schema + Config zuerst kopieren (für postinstall prisma generate)
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./
+
+# Production-Dependencies (prisma jetzt in dependencies!)
+# postinstall (prisma generate) + @prisma/engines laufen normal durch
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev
+
+# App-Assets
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/scripts/init.mjs ./init.mjs
 COPY --from=builder /app/scripts/backup.mjs ./backup.mjs
-COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 RUN mkdir -p /data && chown nextjs:nodejs /data
 

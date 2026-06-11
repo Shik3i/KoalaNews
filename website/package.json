@@ -1,6 +1,6 @@
 {
   "name": "koalanews-website",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
@@ -21,7 +21,6 @@
     "cleanup": "node scripts/cleanup.mjs",
     "backup": "node scripts/backup.mjs",
     "postinstall": "prisma generate",
-    "prepare": "husky",
     "validate": "npm run lint && npm run typecheck && npm run test:run",
     "docker:build": "docker build -t koalanews-website ."
   },
@@ -49,6 +48,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "rss-parser": "^3.13.0",
+    "prisma": "^7.8.0",
     "undici": "^8.4.1"
   },
   "devDependencies": {
@@ -73,7 +73,6 @@
     "lint-staged": "^16.4.0",
     "postcss": "^8.5.10",
     "prettier": "^3.8.3",
-    "prisma": "^7.8.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"
