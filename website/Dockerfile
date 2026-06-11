@@ -22,12 +22,19 @@ RUN adduser --system --uid 1001 nextjs
 
 # Prisma-Schema + Config zuerst kopieren (für postinstall prisma generate)
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/prisma.config.ts ./
+COPY --from=builder /app/prisma.config.mjs ./
 
-# Production-Dependencies (prisma jetzt in dependencies!)
+# Production-Dependencies
 # postinstall (prisma generate) + @prisma/engines laufen normal durch
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev && \
+    rm -rf node_modules/typescript && \
+    rm -rf node_modules/next && \
+    rm -rf node_modules/@next && \
+    rm -rf node_modules/@swc && \
+    rm -f node_modules/@prisma/engines/query-engine* && \
+    rm -f node_modules/@prisma/engines/libquery_engine* && \
+    rm -f node_modules/@prisma/engines/prisma-fmt*
 
 # App-Assets
 COPY --from=builder /app/public ./public
