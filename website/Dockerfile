@@ -31,10 +31,7 @@ RUN npm ci --omit=dev && \
     rm -rf node_modules/typescript && \
     rm -rf node_modules/next && \
     rm -rf node_modules/@next && \
-    rm -rf node_modules/@swc && \
-    rm -f node_modules/@prisma/engines/query-engine* && \
-    rm -f node_modules/@prisma/engines/libquery_engine* && \
-    rm -f node_modules/@prisma/engines/prisma-fmt*
+    rm -rf node_modules/@swc
 
 # App-Assets
 COPY --from=builder /app/public ./public
