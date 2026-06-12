@@ -13,6 +13,12 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   };
 }
 
+import { AppearanceProvider } from './AppearanceProvider';
+
 export default function Providers({ children }: { children: React.ReactNode }) {
-  return <SessionProvider>{children}</SessionProvider>;
+  return (
+    <SessionProvider>
+      <AppearanceProvider>{children}</AppearanceProvider>
+    </SessionProvider>
+  );
 }

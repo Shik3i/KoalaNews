@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { DEFAULT_APPEARANCE, type AppearanceSettings } from '@/lib/appearance';
+import { useAppearance } from './AppearanceProvider';
 
 type ArticleCardProps = {
   id?: string;
@@ -89,7 +90,8 @@ export default function ArticleCard({
     touchStartX.current = null;
     touchStartY.current = null;
   };
-  const settings = { ...DEFAULT_APPEARANCE, ...appearance };
+  const contextAppearance = useAppearance();
+  const settings = { ...DEFAULT_APPEARANCE, ...contextAppearance, ...appearance };
   const safeLocale = ['en', 'de', 'fr'].includes(locale) ? locale : 'en';
   const safeLink = getSafeExternalLink(link);
   const proxiedImage = settings.showImages ? getProxiedImageUrl(imageUrl) : null;

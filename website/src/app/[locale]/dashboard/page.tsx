@@ -7,7 +7,6 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import ArticleCard from '@/components/ArticleCard';
 import ReaderModeModal from '@/components/ReaderModeModal';
-import { DEFAULT_APPEARANCE, type AppearanceSettings } from '@/lib/appearance';
 
 type Feed = {
   id: string;
@@ -52,7 +51,6 @@ export default function DashboardPage() {
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [smartFeeds, setSmartFeeds] = useState<SmartFeed[]>([]);
-  const [appearance, setAppearance] = useState<AppearanceSettings>(DEFAULT_APPEARANCE);
 
   // Filter & UI Selectors
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -153,11 +151,6 @@ export default function DashboardPage() {
       fetchFeeds(selectedCategoryId);
       fetchCategories();
       fetchSmartFeeds();
-
-      fetch('/api/preferences')
-        .then((res) => (res.ok ? res.json() : DEFAULT_APPEARANCE))
-        .then((data) => setAppearance({ ...DEFAULT_APPEARANCE, ...data }))
-        .catch(() => setAppearance(DEFAULT_APPEARANCE));
     }
   }, [status, fetchFeeds, fetchCategories, fetchSmartFeeds, selectedCategoryId]);
 
@@ -1156,7 +1149,6 @@ export default function DashboardPage() {
                     readMoreLabel="Read more"
                     fromFeedLabel="Source"
                     publishedAtLabel="Published"
-                    appearance={appearance}
                     read={article.read}
                     onToggleRead={() => toggleArticleRead(article.id, article.read ?? false)}
                     onOpenReaderMode={() => setActiveReaderArticle(article)}

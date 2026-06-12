@@ -110,6 +110,9 @@ export default function AppearancePage() {
       setLoadedSettings(settings);
       setMessage(t('savedLocal'));
       setSaving(false);
+      window.dispatchEvent(
+        new CustomEvent('koalanews:appearance_updated', { detail: settings })
+      );
       return;
     }
 
@@ -124,6 +127,9 @@ export default function AppearancePage() {
       setSettings(nextSettings);
       setLoadedSettings(nextSettings);
       setMessage(t('saved'));
+      window.dispatchEvent(
+        new CustomEvent('koalanews:appearance_updated', { detail: nextSettings })
+      );
     } else {
       setError(t('saveError'));
     }

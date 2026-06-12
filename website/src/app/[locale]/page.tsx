@@ -159,7 +159,6 @@ export default async function HomePage({
                 readMoreLabel={t('readMore')}
                 fromFeedLabel={t('fromFeed')}
                 publishedAtLabel={t('publishedAt')}
-                appearance={DEFAULT_APPEARANCE}
               />
             ))}
           </div>
