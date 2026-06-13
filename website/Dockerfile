@@ -58,4 +58,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_URL="file:/data/koalanews.db"
 
-CMD ["sh", "-c", "if [ ! -f /data/.initialized ]; then sqlite3 /data/koalanews.db < /app/schema.sql 2>/dev/null || true; touch /data/.initialized; fi && node /app/init.mjs && node /app/server.js"]
+CMD ["sh", "-c", "if ! sqlite3 /data/koalanews.db \"SELECT count(*) FROM sqlite_master WHERE type='table'\" 2>/dev/null | grep -q '^[1-9]'; then sqlite3 /data/koalanews.db < /app/schema.sql 2>/dev/null || true; fi && node /app/init.mjs && node /app/server.js"]

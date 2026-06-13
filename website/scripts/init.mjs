@@ -4,23 +4,15 @@ import bcrypt from 'bcryptjs';
 
 const { hash } = bcrypt;
 
-function db(sql) {
+function dbPath() {
   const url = process.env.DATABASE_URL || 'file:./dev.db';
-  const path = url.startsWith('file:') ? url.slice(5).split('?')[0] || '' : url;
-  if (!path) throw new Error('Invalid DATABASE_URL');
-  const dbPath = path.startsWith('/') ? path : `/app/prisma/${path}`;
-  const args = [dbPath, sql];
-  return execFileSync('sqlite3', args, { encoding: 'utf8' }).trim();
+  const p = url.startsWith('file:') ? url.slice(5).split('?')[0] || '' : url;
+  if (!p) throw new Error('Invalid DATABASE_URL');
+  return p.startsWith('/') ? p : `/app/prisma/${p}`;
 }
 
-function dbJson(sql) {
-  const out = db(sql);
-  if (!out) return [];
-  try {
-    return JSON.parse(out);
-  } catch {
-    return [];
-  }
+function db(sql) {
+  return execFileSync('sqlite3', [dbPath(), sql], { encoding: 'utf8' }).trim();
 }
 
 function maskEmail(email) {
@@ -29,8 +21,8 @@ function maskEmail(email) {
 }
 
 async function getOrCreatePepper() {
-  const rows = dbJson("SELECT value FROM Setting WHERE key = 'pepper'");
-  if (rows.length > 0) return rows[0].value;
+  const existing = db("SELECT value FROM Setting WHERE key = 'pepper'");
+  if (existing) return existing;
   const newPepper = crypto.randomBytes(32).toString('hex');
   db(`INSERT INTO Setting (key, value) VALUES ('pepper', '${newPepper.replace(/'/g, "''")}')`);
   console.log('[init] Pepper generated and stored');
@@ -44,14 +36,14 @@ async function main() {
   const adminPassword = process.env.ADMIN_PASSWORD;
 
   if (adminEmail && adminPassword) {
-    const admins = dbJson(`SELECT id FROM User WHERE role = 'ADMIN' LIMIT 1`);
-    if (admins.length > 0) {
+    const hasAdmin = db("SELECT 1 FROM User WHERE role = 'ADMIN' LIMIT 1");
+    if (hasAdmin) {
       console.log('[init] Admin already exists, skipping');
     } else {
-      const existing = dbJson(`SELECT id, password FROM User WHERE email = '${adminEmail.replace(/'/g, "''")}' LIMIT 1`);
-      if (existing.length > 0) {
+      const existingId = db(`SELECT id FROM User WHERE email = '${adminEmail.replace(/'/g, "''")}' LIMIT 1`);
+      if (existingId) {
         const hashed = await hash(adminPassword + pepper, 12);
-        db(`UPDATE User SET role = 'ADMIN', password = '${hashed.replace(/'/g, "''")}' WHERE id = '${existing[0].id}'`);
+        db(`UPDATE User SET role = 'ADMIN', password = '${hashed.replace(/'/g, "''")}' WHERE id = '${existingId}'`);
         console.log('[init] Existing user promoted to admin:', maskEmail(adminEmail));
       } else {
         const hashed = await hash(adminPassword + pepper, 12);
@@ -63,12 +55,12 @@ async function main() {
   }
 
   const allowRegistration = process.env.ALLOW_REGISTRATION ?? 'true';
-  const regSetting = dbJson("SELECT value FROM Setting WHERE key = 'allow_registration'");
-  if (regSetting.length === 0) {
+  const regSetting = db("SELECT value FROM Setting WHERE key = 'allow_registration'");
+  if (!regSetting) {
     db(`INSERT INTO Setting (key, value) VALUES ('allow_registration', '${allowRegistration.replace(/'/g, "''")}')`);
     console.log('[init] allow_registration set to:', allowRegistration);
   } else {
-    console.log('[init] allow_registration already set to:', regSetting[0].value);
+    console.log('[init] allow_registration already set to:', regSetting);
   }
 
   console.log('[init] Done');
