@@ -1,10 +1,10 @@
-const CACHE_NAME = 'koalanews-cache-v1';
-const ASSETS_TO_CACHE = ['/', '/manifest.json', '/favicon.ico', '/preview-card.svg'];
+const CACHE_NAME = 'koalanews-cache-v2';
+const STATIC_ASSETS = ['/manifest.json', '/favicon.ico', '/preview-card.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      return cache.addAll(STATIC_ASSETS);
     }),
   );
   self.skipWaiting();
@@ -30,6 +30,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (event.request.mode === 'navigate') {
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -51,9 +56,7 @@ self.addEventListener('fetch', (event) => {
           });
           return response;
         })
-        .catch(() => {
-          // Catch network errors
-        });
+        .catch(() => caches.match(event.request));
     }),
   );
 });
