@@ -1,15 +1,16 @@
-FROM node:26-alpine AS base
-
-RUN apk add --no-cache openssl sqlite
+FROM node:26-slim AS base
+RUN apt-get update -qq && apt-get install -y --no-install-recommends openssl sqlite3 ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
 # --- builder ---
 FROM base AS builder
-WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --ignore-scripts
 COPY . .
 RUN npx prisma generate
 RUN npm run build
+# Generate SQL schema for DB init at runtime
+RUN npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > /tmp/schema.sql
 
 # --- runner ---
 FROM base AS runner
@@ -17,28 +18,30 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
-# Prisma-Schema + Config zuerst kopieren (für postinstall prisma generate)
+# Prisma schema + migrations + init SQL
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.mjs ./
+COPY --from=builder /tmp/schema.sql ./
 
-# Production-Dependencies
-# postinstall (prisma generate) + @prisma/engines laufen normal durch
-COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev && \
-    rm -rf node_modules/typescript && \
-    rm -rf node_modules/next && \
-    rm -rf node_modules/@next && \
-    rm -rf node_modules/@swc && \
-    rm -f node_modules/@prisma/engines/query-engine* && \
-    rm -f node_modules/@prisma/engines/prisma-fmt*
-
-# App-Assets
-COPY --from=builder /app/public ./public
+# Next.js standalone output (includes traced node_modules)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+
+# Overlay root-scope node_modules for packages marked serverExternalPackages
+# Prisma uses WASM engine; no native adapter needed at runtime
+COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
+COPY --from=builder /app/node_modules/@prisma/client/package.json ./node_modules/@prisma/client/package.json
+COPY --from=builder /app/node_modules/@prisma/client/default.js ./node_modules/@prisma/client/default.js
+COPY --from=builder /app/node_modules/@prisma/client/runtime/client.js ./node_modules/@prisma/client/runtime/client.js
+COPY --from=builder /app/node_modules/@prisma/client-runtime-utils ./node_modules/@prisma/client-runtime-utils
+
+# Static assets
+COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Scripts
 COPY --from=builder /app/scripts/init.mjs ./init.mjs
 COPY --from=builder /app/scripts/backup.mjs ./backup.mjs
 
@@ -52,4 +55,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_URL="file:/data/koalanews.db"
 
-CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js db push && node init.mjs && node server.js"]
+CMD ["sh", "-c", "if [ ! -f /data/.initialized ]; then sqlite3 /data/koalanews.db < /app/schema.sql && touch /data/.initialized; fi && node /app/init.mjs && node /app/server.js"]
