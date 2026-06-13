@@ -1,6 +1,6 @@
 {
   "name": "koalanews-website",
-  "version": "0.3.12",
+  "version": "0.3.13",
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
@@ -22,7 +22,8 @@
     "backup": "node scripts/backup.mjs",
     "postinstall": "prisma generate",
     "validate": "npm run lint && npm run typecheck && npm run test:run",
-    "docker:build": "docker build -t koalanews-website ."
+    "docker:build": "docker build -t koalanews-website .",
+    "test:docker": "bash scripts/test-docker-restart.sh"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

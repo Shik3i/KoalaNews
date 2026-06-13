@@ -45,6 +45,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/scripts/init.mjs ./init.mjs
 COPY --from=builder /app/scripts/backup.mjs ./backup.mjs
 
+# Script dependencies (not traced by Next.js standalone)
+COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
+
 RUN mkdir -p /data && chown nextjs:nodejs /data
 
 USER nextjs
