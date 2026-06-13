@@ -30,12 +30,20 @@ COPY --from=builder /tmp/schema.sql ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 
 # Overlay root-scope node_modules for packages marked serverExternalPackages
-# Prisma uses WASM engine; no native adapter needed at runtime
+# Prisma with libsql adapter
 COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
-COPY --from=builder /app/node_modules/@prisma/client/package.json ./node_modules/@prisma/client/package.json
-COPY --from=builder /app/node_modules/@prisma/client/default.js ./node_modules/@prisma/client/default.js
-COPY --from=builder /app/node_modules/@prisma/client/runtime/client.js ./node_modules/@prisma/client/runtime/client.js
-COPY --from=builder /app/node_modules/@prisma/client-runtime-utils ./node_modules/@prisma/client-runtime-utils
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+COPY --from=builder /app/node_modules/@prisma/adapter-libsql ./node_modules/@prisma/adapter-libsql
+COPY --from=builder /app/node_modules/@prisma/driver-adapter-utils ./node_modules/@prisma/driver-adapter-utils
+COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
+COPY --from=builder /app/node_modules/@neon-rs ./node_modules/@neon-rs
+COPY --from=builder /app/node_modules/js-base64 ./node_modules/js-base64
+COPY --from=builder /app/node_modules/detect-libc ./node_modules/detect-libc
+COPY --from=builder /app/node_modules/ws ./node_modules/ws
+COPY --from=builder /app/node_modules/tslib ./node_modules/tslib
+COPY --from=builder /app/node_modules/async-mutex ./node_modules/async-mutex
+COPY --from=builder /app/node_modules/promise-limit ./node_modules/promise-limit
+COPY --from=builder /app/node_modules/libsql ./node_modules/libsql
 
 # Static assets
 COPY --from=builder /app/public ./public
