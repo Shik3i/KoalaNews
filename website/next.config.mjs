@@ -6,15 +6,13 @@ const isDev = process.env.NODE_ENV !== 'production';
 const config = {
   output: 'standalone',
   serverExternalPackages: ['@prisma/client'],
-  experimental: {
-    outputFileTracingExcludes: {
-      '*': [
-        'src/**/*',
-        'dev.db',
-        'configs/**/*',
-        'docker-compose*.yml',
-      ],
-    },
+  outputFileTracingExcludes: {
+    '*': [
+      'src/**/*',
+      'dev.db',
+      'configs/**/*',
+      'docker-compose*.yml',
+    ],
   },
   async headers() {
     return [

@@ -10,7 +10,7 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 # Generate SQL schema for DB init at runtime
-RUN npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > /tmp/schema.sql
+RUN npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script > /tmp/schema.sql
 
 # --- runner ---
 FROM base AS runner

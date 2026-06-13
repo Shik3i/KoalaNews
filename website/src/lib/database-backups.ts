@@ -29,7 +29,7 @@ export function getSqliteDatabasePath() {
   if (!rawPath) throw new Error('DATABASE_URL is missing a file path');
 
   if (path.isAbsolute(rawPath)) return rawPath;
-  return path.resolve(process.cwd(), 'prisma', rawPath);
+  return path.resolve(/*turbopackIgnore: true*/ process.cwd(), 'prisma', rawPath);
 }
 
 export async function getDatabaseInfo() {

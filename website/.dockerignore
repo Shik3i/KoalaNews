@@ -10,7 +10,6 @@ coverage
 .husky
 .eslintrc.json
 .prettierrc
-tsconfig.json
 tsconfig.tsbuildinfo
 __mocks__
 src/test
