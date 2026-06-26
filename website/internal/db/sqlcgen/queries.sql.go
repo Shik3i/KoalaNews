@@ -144,6 +144,40 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 	return err
 }
 
+const createSmartFeed = `-- name: CreateSmartFeed :one
+INSERT INTO smart_feeds (id, name, query, feed_id, user_id)
+VALUES (?, ?, ?, ?, ?)
+RETURNING id, name, "query", feed_id, user_id, created_at
+`
+
+type CreateSmartFeedParams struct {
+	ID     string  `json:"id"`
+	Name   string  `json:"name"`
+	Query  string  `json:"query"`
+	FeedID *string `json:"feed_id"`
+	UserID string  `json:"user_id"`
+}
+
+func (q *Queries) CreateSmartFeed(ctx context.Context, arg CreateSmartFeedParams) (SmartFeed, error) {
+	row := q.db.QueryRowContext(ctx, createSmartFeed,
+		arg.ID,
+		arg.Name,
+		arg.Query,
+		arg.FeedID,
+		arg.UserID,
+	)
+	var i SmartFeed
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Query,
+		&i.FeedID,
+		&i.UserID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, name, email, password, role)
 VALUES (?, ?, ?, ?, ?)
@@ -245,6 +279,20 @@ func (q *Queries) DeleteSessionsForUser(ctx context.Context, userID string) erro
 	return err
 }
 
+const deleteSmartFeedForUser = `-- name: DeleteSmartFeedForUser :exec
+DELETE FROM smart_feeds WHERE id = ? AND user_id = ?
+`
+
+type DeleteSmartFeedForUserParams struct {
+	ID     string `json:"id"`
+	UserID string `json:"user_id"`
+}
+
+func (q *Queries) DeleteSmartFeedForUser(ctx context.Context, arg DeleteSmartFeedForUserParams) error {
+	_, err := q.db.ExecContext(ctx, deleteSmartFeedForUser, arg.ID, arg.UserID)
+	return err
+}
+
 const getCachedImage = `-- name: GetCachedImage :one
 SELECT content_type, data FROM image_cache WHERE source_url = ? LIMIT 1
 `
@@ -340,6 +388,24 @@ func (q *Queries) GetSetting(ctx context.Context, key string) (string, error) {
 	var value string
 	err := row.Scan(&value)
 	return value, err
+}
+
+const getSmartFeedByID = `-- name: GetSmartFeedByID :one
+SELECT id, name, "query", feed_id, user_id, created_at FROM smart_feeds WHERE id = ? LIMIT 1
+`
+
+func (q *Queries) GetSmartFeedByID(ctx context.Context, id string) (SmartFeed, error) {
+	row := q.db.QueryRowContext(ctx, getSmartFeedByID, id)
+	var i SmartFeed
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Query,
+		&i.FeedID,
+		&i.UserID,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getSourceFeedByURL = `-- name: GetSourceFeedByURL :one
@@ -684,6 +750,91 @@ func (q *Queries) ListArticlesForUserByCategory(ctx context.Context, arg ListArt
 	return items, nil
 }
 
+const listArticlesForUserBySmartFeed = `-- name: ListArticlesForUserBySmartFeed :many
+SELECT DISTINCT a.id, a.title, a.link, a.description, a.content, a.image_url,
+  a.pub_date, a.guid, a.source_feed_id, a.created_at,
+  CASE WHEN EXISTS(
+    SELECT 1 FROM article_reads ar WHERE ar.user_id = ?1 AND ar.article_id = a.id
+  ) THEN 1 ELSE 0 END AS read
+FROM articles a
+JOIN feeds f ON f.source_feed_id = a.source_feed_id
+WHERE f.user_id = ?2
+  AND (?3 IS NULL OR f.id = ?4)
+  AND (LOWER(a.title) LIKE '%' || LOWER(?5) || '%'
+       OR LOWER(a.description) LIKE '%' || LOWER(?6) || '%')
+ORDER BY a.pub_date DESC NULLS LAST, a.created_at DESC
+LIMIT ?8 OFFSET ?7
+`
+
+type ListArticlesForUserBySmartFeedParams struct {
+	ReaderID string      `json:"reader_id"`
+	OwnerID  string      `json:"owner_id"`
+	FeedID   interface{} `json:"feed_id"`
+	FeedId2  string      `json:"feed_id2"`
+	Query    string      `json:"query"`
+	Query2   string      `json:"query2"`
+	Offset   int64       `json:"offset"`
+	Limit    int64       `json:"limit"`
+}
+
+type ListArticlesForUserBySmartFeedRow struct {
+	ID           string  `json:"id"`
+	Title        *string `json:"title"`
+	Link         *string `json:"link"`
+	Description  *string `json:"description"`
+	Content      *string `json:"content"`
+	ImageUrl     *string `json:"image_url"`
+	PubDate      *string `json:"pub_date"`
+	Guid         *string `json:"guid"`
+	SourceFeedID *string `json:"source_feed_id"`
+	CreatedAt    string  `json:"created_at"`
+	Read         int64   `json:"read"`
+}
+
+func (q *Queries) ListArticlesForUserBySmartFeed(ctx context.Context, arg ListArticlesForUserBySmartFeedParams) ([]ListArticlesForUserBySmartFeedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listArticlesForUserBySmartFeed,
+		arg.ReaderID,
+		arg.OwnerID,
+		arg.FeedID,
+		arg.FeedId2,
+		arg.Query,
+		arg.Query2,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListArticlesForUserBySmartFeedRow
+	for rows.Next() {
+		var i ListArticlesForUserBySmartFeedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Link,
+			&i.Description,
+			&i.Content,
+			&i.ImageUrl,
+			&i.PubDate,
+			&i.Guid,
+			&i.SourceFeedID,
+			&i.CreatedAt,
+			&i.Read,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCategoriesByUser = `-- name: ListCategoriesByUser :many
 SELECT id, name, user_id, created_at FROM categories WHERE user_id = ? ORDER BY name ASC
 `
@@ -766,6 +917,40 @@ func (q *Queries) ListFeedsByUser(ctx context.Context, userID string) ([]Feed, e
 			&i.SourceFeedID,
 			&i.CategoryID,
 			&i.LastFetchedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSmartFeedsByUser = `-- name: ListSmartFeedsByUser :many
+SELECT id, name, "query", feed_id, user_id, created_at FROM smart_feeds WHERE user_id = ? ORDER BY name ASC
+`
+
+func (q *Queries) ListSmartFeedsByUser(ctx context.Context, userID string) ([]SmartFeed, error) {
+	rows, err := q.db.QueryContext(ctx, listSmartFeedsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SmartFeed
+	for rows.Next() {
+		var i SmartFeed
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Query,
+			&i.FeedID,
+			&i.UserID,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

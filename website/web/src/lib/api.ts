@@ -34,11 +34,20 @@ export type Category = {
   created_at: string;
 };
 
+export type SmartFeed = {
+  id: string;
+  name: string;
+  query: string;
+  feed_id: string | null;
+  created_at: string;
+};
+
 export function listArticles(
   opts: {
     lang?: string;
     scope?: 'public';
     category?: string;
+    smartFeed?: string;
     limit?: number;
     offset?: number;
   } = {},
@@ -47,6 +56,7 @@ export function listArticles(
   if (opts.lang) q.set('lang', opts.lang);
   if (opts.scope) q.set('scope', opts.scope);
   if (opts.category) q.set('category', opts.category);
+  if (opts.smartFeed) q.set('smartFeed', opts.smartFeed);
   q.set('limit', String(opts.limit ?? 30));
   q.set('offset', String(opts.offset ?? 0));
   return getJSON<Article[]>(`/api/articles?${q}`);
@@ -89,6 +99,22 @@ export function setFeedCategory(
   categoryId: string | null,
 ): Promise<{ status: string }> {
   return send('PATCH', `/api/feeds/${feedId}/category`, { category_id: categoryId });
+}
+
+export function listSmartFeeds(): Promise<SmartFeed[]> {
+  return getJSON<SmartFeed[]>('/api/smart-feeds');
+}
+
+export function createSmartFeed(
+  name: string,
+  query: string,
+  feedId: string | null,
+): Promise<SmartFeed> {
+  return send<SmartFeed>('POST', '/api/smart-feeds', { name, query, feed_id: feedId });
+}
+
+export function deleteSmartFeed(id: string): Promise<{ status: string }> {
+  return send('DELETE', `/api/smart-feeds/${id}`);
 }
 
 export type OPMLImportResult = { added: number; skipped: number; failed: number; total: number };

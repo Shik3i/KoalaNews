@@ -53,6 +53,10 @@ func (s *Server) Router() http.Handler {
 		r.Patch("/categories/{id}", s.requireAuth(s.handleRenameCategory))
 		r.Delete("/categories/{id}", s.requireAuth(s.handleDeleteCategory))
 
+		r.Get("/smart-feeds", s.requireAuth(s.handleListSmartFeeds))
+		r.Post("/smart-feeds", s.requireAuth(s.handleCreateSmartFeed))
+		r.Delete("/smart-feeds/{id}", s.requireAuth(s.handleDeleteSmartFeed))
+
 		r.Get("/preferences", s.requireAuth(s.handleGetPreferences))
 		r.Put("/preferences", s.requireAuth(s.handlePutPreferences))
 
@@ -103,6 +107,37 @@ func (s *Server) handleListArticles(w http.ResponseWriter, r *http.Request) {
 
 	views := []articleView{}
 	if personal {
+		if smartFeedID := r.URL.Query().Get("smartFeed"); smartFeedID != "" {
+			sf, err := s.store.GetSmartFeedByID(r.Context(), smartFeedID)
+			if err != nil || sf.UserID != u.ID {
+				writeJSON(w, http.StatusNotFound, map[string]string{"error": "smart feed not found"})
+				return
+			}
+			rows, err := s.store.ListArticlesForUserBySmartFeed(r.Context(), sqlcgen.ListArticlesForUserBySmartFeedParams{
+				ReaderID: u.ID,
+				OwnerID:  u.ID,
+				FeedID:   feedIDFilter(sf.FeedID),
+				FeedId2:  feedIDFilterStr(sf.FeedID),
+				Query:    sf.Query,
+				Query2:   sf.Query,
+				Limit:    int64(limit),
+				Offset:   int64(offset),
+			})
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
+				return
+			}
+			for _, a := range rows {
+				views = append(views, articleView{
+					ID: a.ID, Title: a.Title, Link: a.Link, Description: a.Description,
+					Content: a.Content, ImageURL: a.ImageUrl, PubDate: a.PubDate, Guid: a.Guid,
+					SourceFeedID: a.SourceFeedID, CreatedAt: a.CreatedAt, Read: a.Read != 0,
+				})
+			}
+			writeJSON(w, http.StatusOK, views)
+			return
+		}
+
 		categoryID := r.URL.Query().Get("category")
 		if categoryID != "" {
 			rows, err := s.store.ListArticlesForUserByCategory(r.Context(), sqlcgen.ListArticlesForUserByCategoryParams{
@@ -187,6 +222,24 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// feedIDFilter converts an optional feed id into the interface{} sqlc expects
+// for the nullable `feed_id IS NULL` comparison.
+func feedIDFilter(id *string) interface{} {
+	if id == nil {
+		return nil
+	}
+	return *id
+}
+
+// feedIDFilterStr mirrors feedIDFilter for the companion `f.id = ?` comparison,
+// which is typed as a plain string since f.id is NOT NULL.
+func feedIDFilterStr(id *string) string {
+	if id == nil {
+		return ""
+	}
+	return *id
 }
 
 func clampInt(s string, def, min, max int) int {

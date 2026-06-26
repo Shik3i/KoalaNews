@@ -129,6 +129,35 @@ JOIN feeds f ON f.source_feed_id = a.source_feed_id
 WHERE f.user_id = ?
 ON CONFLICT(user_id, article_id) DO NOTHING;
 
+-- name: CreateSmartFeed :one
+INSERT INTO smart_feeds (id, name, query, feed_id, user_id)
+VALUES (?, ?, ?, ?, ?)
+RETURNING *;
+
+-- name: ListSmartFeedsByUser :many
+SELECT * FROM smart_feeds WHERE user_id = ? ORDER BY name ASC;
+
+-- name: GetSmartFeedByID :one
+SELECT * FROM smart_feeds WHERE id = ? LIMIT 1;
+
+-- name: DeleteSmartFeedForUser :exec
+DELETE FROM smart_feeds WHERE id = ? AND user_id = ?;
+
+-- name: ListArticlesForUserBySmartFeed :many
+SELECT DISTINCT a.id, a.title, a.link, a.description, a.content, a.image_url,
+  a.pub_date, a.guid, a.source_feed_id, a.created_at,
+  CASE WHEN EXISTS(
+    SELECT 1 FROM article_reads ar WHERE ar.user_id = sqlc.arg('reader_id') AND ar.article_id = a.id
+  ) THEN 1 ELSE 0 END AS read
+FROM articles a
+JOIN feeds f ON f.source_feed_id = a.source_feed_id
+WHERE f.user_id = sqlc.arg('owner_id')
+  AND (sqlc.arg('feed_id') IS NULL OR f.id = sqlc.arg('feed_id2'))
+  AND (LOWER(a.title) LIKE '%' || LOWER(sqlc.arg('query')) || '%'
+       OR LOWER(a.description) LIKE '%' || LOWER(sqlc.arg('query2')) || '%')
+ORDER BY a.pub_date DESC NULLS LAST, a.created_at DESC
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
+
 -- name: GetCachedImage :one
 SELECT content_type, data FROM image_cache WHERE source_url = ? LIMIT 1;
 

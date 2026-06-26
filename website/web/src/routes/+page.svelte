@@ -6,8 +6,10 @@
     markUnread,
     markAllRead,
     listCategories,
+    listSmartFeeds,
     type Article,
     type Category,
+    type SmartFeed,
   } from '$lib/api';
   import { user } from '$lib/auth';
   import ArticleCard from '$lib/components/ArticleCard.svelte';
@@ -21,7 +23,9 @@
   let lang = $state('en');
   let articles = $state<Article[]>([]);
   let categories = $state<Category[]>([]);
+  let smartFeeds = $state<SmartFeed[]>([]);
   let activeCategory = $state('');
+  let activeSmartFeed = $state('');
   let loading = $state(true);
   let error = $state<string | null>(null);
 
@@ -31,7 +35,11 @@
     try {
       // Logged-in users get their personal subscription feed; guests get the locale feed.
       articles = $user
-        ? await listArticles({ limit: 40, category: activeCategory || undefined })
+        ? await listArticles({
+            limit: 40,
+            category: activeSmartFeed ? undefined : activeCategory || undefined,
+            smartFeed: activeSmartFeed || undefined,
+          })
         : await listArticles({ lang, limit: 40 });
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load';
@@ -42,17 +50,28 @@
 
   onMount(async () => {
     try {
-      categories = await listCategories();
+      [categories, smartFeeds] = await Promise.all([listCategories(), listSmartFeeds()]);
     } catch {
-      // categories are optional UI; ignore failures
+      // categories/smart feeds are optional UI; ignore failures
     }
   });
 
+  function selectCategory(id: string) {
+    activeCategory = id;
+    activeSmartFeed = '';
+  }
+
+  function selectSmartFeed(id: string) {
+    activeSmartFeed = id;
+    activeCategory = '';
+  }
+
   $effect(() => {
-    // Re-run when the user logs in/out, the guest language, or the category filter changes.
+    // Re-run when the user logs in/out, the guest language, or the active filter changes.
     void $user;
     void lang;
     void activeCategory;
+    void activeSmartFeed;
     load();
   });
 
@@ -90,18 +109,25 @@
       <button class="surface px-3 py-1.5 text-sm" onclick={markAll}>Mark all read</button>
     {/if}
   </div>
-  {#if categories.length > 0}
+  {#if categories.length > 0 || smartFeeds.length > 0}
     <div class="mb-5 flex flex-wrap items-center gap-2">
       <button
         class="surface px-3 py-1.5 text-sm"
-        style={activeCategory === '' ? 'outline: 2px solid var(--accent);' : ''}
-        onclick={() => (activeCategory = '')}>All</button
+        style={activeCategory === '' && activeSmartFeed === '' ? 'outline: 2px solid var(--accent);' : ''}
+        onclick={() => selectCategory('')}>All</button
       >
       {#each categories as cat (cat.id)}
         <button
           class="surface px-3 py-1.5 text-sm"
           style={activeCategory === cat.id ? 'outline: 2px solid var(--accent);' : ''}
-          onclick={() => (activeCategory = cat.id)}>{cat.name}</button
+          onclick={() => selectCategory(cat.id)}>{cat.name}</button
+        >
+      {/each}
+      {#each smartFeeds as sf (sf.id)}
+        <button
+          class="surface px-3 py-1.5 text-sm"
+          style={activeSmartFeed === sf.id ? 'outline: 2px solid var(--accent);' : ''}
+          onclick={() => selectSmartFeed(sf.id)}>🔍 {sf.name}</button
         >
       {/each}
     </div>

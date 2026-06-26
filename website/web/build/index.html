@@ -2,15 +2,59 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <link rel="icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>KoalaNews</title>
+    <script>
+      // Apply persisted appearance before first paint to avoid a flash.
+      try {
+        const raw = localStorage.getItem('koalanews:appearance');
+        if (raw) {
+          const a = JSON.parse(raw);
+          const el = document.documentElement;
+          if (a.theme) el.dataset.theme = a.theme;
+          if (a.density) el.dataset.density = a.density;
+          if (a.cardStyle) el.dataset.cardStyle = a.cardStyle;
+          if (a.fontScale) el.dataset.fontScale = a.fontScale;
+          if (a.accent) el.style.setProperty('--user-accent', a.accent);
+        }
+      } catch (e) {}
+    </script>
+    <link href="/_app/immutable/entry/start.Dn2RkkTs.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/BR62I1eA.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/VzK8Ph7T.js" rel="modulepreload">
+		<link href="/_app/immutable/entry/app.DWefwQcP.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/BS-LZY-i.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/DCHXsHhX.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/DZuPjiLC.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/CwqrDIQn.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/CruXpOFH.js" rel="modulepreload">
+		<link href="/_app/immutable/nodes/0.B4k1QNbQ.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/9hEA5QDW.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/BwC395oj.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/B-1mA04a.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/DFgEmX0F.js" rel="modulepreload">
+		
+		<link href="/_app/immutable/assets/0.o4vLraYc.css" rel="stylesheet">
   </head>
-  <body>
-    <!--
-      Placeholder shell so `go:embed` compiles on a fresh checkout.
-      The real SPA is produced by `npm run build` (web/) and overwrites build/.
-      The Dockerfile rebuilds the frontend before the Go build.
-    -->
-    <p>KoalaNews — run `npm run build` in web/ to generate the frontend.</p>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">
+			<script>
+				{
+					__sveltekit_4894lu = {
+						base: ""
+					};
+
+					const element = document.currentScript.parentElement;
+
+					Promise.all([
+						import("/_app/immutable/entry/start.Dn2RkkTs.js"),
+						import("/_app/immutable/entry/app.DWefwQcP.js")
+					]).then(([kit, app]) => {
+						kit.start(app, element);
+					});
+				}
+			</script>
+		</div>
   </body>
 </html>

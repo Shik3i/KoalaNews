@@ -77,6 +77,15 @@ type Setting struct {
 	Value string `json:"value"`
 }
 
+type SmartFeed struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Query     string  `json:"query"`
+	FeedID    *string `json:"feed_id"`
+	UserID    string  `json:"user_id"`
+	CreatedAt string  `json:"created_at"`
+}
+
 type SourceFeed struct {
 	ID            string  `json:"id"`
 	Url           string  `json:"url"`

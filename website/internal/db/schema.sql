@@ -78,6 +78,17 @@ CREATE TABLE IF NOT EXISTS articles (
 CREATE INDEX IF NOT EXISTS idx_articles_source_pub ON articles(source_feed_id, pub_date);
 CREATE INDEX IF NOT EXISTS idx_articles_pub ON articles(pub_date);
 
+CREATE TABLE IF NOT EXISTS smart_feeds (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    query      TEXT NOT NULL,
+    feed_id    TEXT REFERENCES feeds(id) ON DELETE CASCADE,
+    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_smart_feeds_user ON smart_feeds(user_id);
+
 CREATE TABLE IF NOT EXISTS article_reads (
     user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,

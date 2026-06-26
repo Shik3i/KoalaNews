@@ -11,12 +11,17 @@
     createCategory,
     deleteCategory,
     setFeedCategory,
+    listSmartFeeds,
+    createSmartFeed,
+    deleteSmartFeed,
     type Feed,
     type Category,
+    type SmartFeed,
   } from '$lib/api';
 
   let feeds = $state<Feed[]>([]);
   let categories = $state<Category[]>([]);
+  let smartFeeds = $state<SmartFeed[]>([]);
   let loading = $state(true);
   let url = $state('');
   let language = $state('en');
@@ -26,6 +31,9 @@
   let importMsg = $state<string | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
   let newCategoryName = $state('');
+  let newSmartFeedName = $state('');
+  let newSmartFeedQuery = $state('');
+  let newSmartFeedFeedId = $state('');
 
   async function onImportFile(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -50,7 +58,11 @@
   async function refresh() {
     loading = true;
     try {
-      [feeds, categories] = await Promise.all([listFeeds(), listCategories()]);
+      [feeds, categories, smartFeeds] = await Promise.all([
+        listFeeds(),
+        listCategories(),
+        listSmartFeeds(),
+      ]);
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load feeds';
     } finally {
@@ -119,6 +131,37 @@
     } catch {
       feeds = prev;
     }
+  }
+
+  async function addSmartFeed(e: SubmitEvent) {
+    e.preventDefault();
+    const name = newSmartFeedName.trim();
+    const query = newSmartFeedQuery.trim();
+    if (!name || !query) return;
+    try {
+      const sf = await createSmartFeed(name, query, newSmartFeedFeedId || null);
+      smartFeeds = [...smartFeeds, sf].sort((a, b) => a.name.localeCompare(b.name));
+      newSmartFeedName = '';
+      newSmartFeedQuery = '';
+      newSmartFeedFeedId = '';
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Could not create smart feed';
+    }
+  }
+
+  async function removeSmartFeed(id: string) {
+    const prev = smartFeeds;
+    smartFeeds = smartFeeds.filter((s) => s.id !== id);
+    try {
+      await deleteSmartFeed(id);
+    } catch {
+      smartFeeds = prev;
+    }
+  }
+
+  function feedTitle(feedId: string | null): string {
+    if (!feedId) return '';
+    return feeds.find((f) => f.id === feedId)?.title ?? '';
   }
 
   onMount(() => {
@@ -197,6 +240,50 @@
       <button class="surface px-3 py-1.5 text-sm">Add</button>
     </form>
   </div>
+</section>
+
+<section class="mb-6">
+  <h2 class="mb-2 text-sm font-medium text-muted">Smart feeds</h2>
+  <p class="mb-2 text-xs text-muted">
+    Saved searches: matches articles whose title or description contains the query, optionally
+    limited to one feed.
+  </p>
+  <div class="mb-3 flex flex-wrap items-center gap-2">
+    {#each smartFeeds as sf (sf.id)}
+      <span class="surface flex items-center gap-2 px-3 py-1.5 text-sm">
+        {sf.name}
+        <span class="text-muted">"{sf.query}"{feedTitle(sf.feed_id) ? ` in ${feedTitle(sf.feed_id)}` : ''}</span>
+        <button class="text-muted hover:text-current" onclick={() => removeSmartFeed(sf.id)} title="Delete smart feed"
+          >✕</button
+        >
+      </span>
+    {/each}
+  </div>
+  <form class="flex flex-wrap gap-2" onsubmit={addSmartFeed}>
+    <input
+      class="surface px-2 py-1.5 text-sm"
+      style="background: var(--bg-elevated); color: var(--text); width: 9rem;"
+      placeholder="Name"
+      bind:value={newSmartFeedName}
+    />
+    <input
+      class="surface px-2 py-1.5 text-sm"
+      style="background: var(--bg-elevated); color: var(--text); width: 12rem;"
+      placeholder="Search text"
+      bind:value={newSmartFeedQuery}
+    />
+    <select
+      class="surface px-2 py-1.5 text-sm"
+      style="background: var(--bg-elevated); color: var(--text);"
+      bind:value={newSmartFeedFeedId}
+    >
+      <option value="">Any feed</option>
+      {#each feeds as feed (feed.id)}
+        <option value={feed.id}>{feed.title ?? feed.url}</option>
+      {/each}
+    </select>
+    <button class="surface px-3 py-1.5 text-sm">Add</button>
+  </form>
 </section>
 
 {#if loading}
