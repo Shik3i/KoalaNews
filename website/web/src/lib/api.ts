@@ -9,6 +9,7 @@ export type Article = {
   guid: string | null;
   source_feed_id: string | null;
   created_at: string;
+  read: boolean;
 };
 
 async function getJSON<T>(path: string): Promise<T> {
@@ -39,6 +40,18 @@ export function listArticles(
 
 export function listFeeds(): Promise<Feed[]> {
   return getJSON<Feed[]>('/api/feeds');
+}
+
+export function markRead(id: string): Promise<{ status: string }> {
+  return send('POST', `/api/articles/${id}/read`);
+}
+
+export function markUnread(id: string): Promise<{ status: string }> {
+  return send('DELETE', `/api/articles/${id}/read`);
+}
+
+export function markAllRead(): Promise<{ status: string }> {
+  return send('POST', '/api/articles/read-all');
 }
 
 async function send<T>(method: string, path: string, body?: unknown): Promise<T> {

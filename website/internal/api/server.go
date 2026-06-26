@@ -48,6 +48,10 @@ func (s *Server) Router() http.Handler {
 		r.Get("/preferences", s.requireAuth(s.handleGetPreferences))
 		r.Put("/preferences", s.requireAuth(s.handlePutPreferences))
 
+		r.Post("/articles/{id}/read", s.requireAuth(s.handleMarkRead))
+		r.Delete("/articles/{id}/read", s.requireAuth(s.handleMarkUnread))
+		r.Post("/articles/read-all", s.requireAuth(s.handleMarkAllRead))
+
 		r.Get("/admin/users", s.requireAdmin(s.handleAdminListUsers))
 		r.Patch("/admin/users/{id}", s.requireAdmin(s.handleAdminUpdateUser))
 		r.Get("/admin/stats", s.requireAdmin(s.handleAdminStats))
@@ -66,39 +70,68 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+type articleView struct {
+	ID           string  `json:"id"`
+	Title        *string `json:"title"`
+	Link         *string `json:"link"`
+	Description  *string `json:"description"`
+	Content      *string `json:"content"`
+	ImageURL     *string `json:"image_url"`
+	PubDate      *string `json:"pub_date"`
+	Guid         *string `json:"guid"`
+	SourceFeedID *string `json:"source_feed_id"`
+	CreatedAt    string  `json:"created_at"`
+	Read         bool    `json:"read"`
+}
+
 func (s *Server) handleListArticles(w http.ResponseWriter, r *http.Request) {
 	limit := clampInt(r.URL.Query().Get("limit"), 30, 1, 100)
 	offset := clampInt(r.URL.Query().Get("offset"), 0, 0, 100000)
 
-	// Logged-in users with subscriptions see their personal feed; otherwise the
-	// public locale feed. `?scope=public` forces the locale feed even when signed in.
+	// Logged-in users with subscriptions see their personal feed (with read state);
+	// otherwise the public locale feed. `?scope=public` forces the locale feed.
 	u := currentUser(r)
 	personal := u != nil && r.URL.Query().Get("scope") != "public"
 
-	var articles []sqlcgen.Article
-	var err error
+	views := []articleView{}
 	if personal {
-		articles, err = s.store.ListArticlesForUser(r.Context(), sqlcgen.ListArticlesForUserParams{
-			UserID: u.ID,
-			Limit:  int64(limit),
-			Offset: int64(offset),
+		rows, err := s.store.ListArticlesForUser(r.Context(), sqlcgen.ListArticlesForUserParams{
+			UserID:   u.ID,
+			UserID_2: u.ID,
+			Limit:    int64(limit),
+			Offset:   int64(offset),
 		})
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
+			return
+		}
+		for _, a := range rows {
+			views = append(views, articleView{
+				ID: a.ID, Title: a.Title, Link: a.Link, Description: a.Description,
+				Content: a.Content, ImageURL: a.ImageUrl, PubDate: a.PubDate, Guid: a.Guid,
+				SourceFeedID: a.SourceFeedID, CreatedAt: a.CreatedAt, Read: a.Read != 0,
+			})
+		}
 	} else {
 		lang := rss.NormalizeLanguage(r.URL.Query().Get("lang"))
-		articles, err = s.store.ListArticlesByLanguage(r.Context(), sqlcgen.ListArticlesByLanguageParams{
+		rows, err := s.store.ListArticlesByLanguage(r.Context(), sqlcgen.ListArticlesByLanguageParams{
 			Language: lang,
 			Limit:    int64(limit),
 			Offset:   int64(offset),
 		})
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
+			return
+		}
+		for _, a := range rows {
+			views = append(views, articleView{
+				ID: a.ID, Title: a.Title, Link: a.Link, Description: a.Description,
+				Content: a.Content, ImageURL: a.ImageUrl, PubDate: a.PubDate, Guid: a.Guid,
+				SourceFeedID: a.SourceFeedID, CreatedAt: a.CreatedAt, Read: false,
+			})
+		}
 	}
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
-		return
-	}
-	if articles == nil {
-		articles = []sqlcgen.Article{}
-	}
-	writeJSON(w, http.StatusOK, articles)
+	writeJSON(w, http.StatusOK, views)
 }
 
 func (s *Server) handleImage(w http.ResponseWriter, r *http.Request) {

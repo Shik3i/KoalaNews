@@ -25,8 +25,10 @@ Status: **In Arbeit** — Fundament + RSS-Pipeline lauffähig (vertikaler Schnit
 
 - [x] **Admin-Panel** — `GET /api/admin/users`, `PATCH /api/admin/users/{id}` (Rolle/Ban mit Self-Lockout-Schutz + Session-Revoke beim Bannen), `GET /api/admin/stats` (User/Feed/Source/Article-Counts + DB-Größe via SQLite-Pragmas). Frontend: Stats-Cards + User-Tabelle mit Promote/Demote/Ban/Unban. **End-to-end verifiziert** (UI-Ban → Status „banned" + Session weg; Self-Ban/Demote 403; non-admin 403).
 
+- [x] **Read-State** — `article_reads` pro User. `POST/DELETE /api/articles/{id}/read`, `POST /api/articles/read-all`. Personalisierte Artikelliste liefert `read`-Flag (Subquery). Frontend: gelesene Artikel gedimmt, Per-Card Read/Unread-Toggle (optimistisch), „Mark all read" + Unread-Counter. **End-to-end verifiziert** (Toggle → Counter 10→9 + Dimming; Server-Persistenz nach Reload; unauth 401).
+
 ### Als Nächstes
-- [ ] Weitere Parität: Statistiken, Smart-Feeds, Kategorien, OPML, Read-State, i18n, Backups.
+- [ ] Weitere Parität: Statistiken (user-facing), Smart-Feeds, Kategorien, OPML Import/Export, i18n, Backups.
 - [ ] **Phase 4** — restliche API-Routes: feeds CRUD, categories, smart-feeds, statistics, admin (users/settings/backups), read-state, OPML.
 - [ ] **Phase 5 (Rest)** — Seiten: login/register, dashboard (Feeds verwalten), settings, statistics, admin. i18n (de/en/fr).
 - [ ] **Phase 6/7** — GFS-Backups (CLI + admin), Cutover via Reverse-Proxy.

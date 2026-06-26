@@ -479,7 +479,12 @@ func (q *Queries) ListArticlesByLanguage(ctx context.Context, arg ListArticlesBy
 }
 
 const listArticlesForUser = `-- name: ListArticlesForUser :many
-SELECT DISTINCT a.id, a.title, a.link, a.description, a.content, a.image_url, a.pub_date, a.guid, a.source_feed_id, a.created_at FROM articles a
+SELECT DISTINCT a.id, a.title, a.link, a.description, a.content, a.image_url,
+  a.pub_date, a.guid, a.source_feed_id, a.created_at,
+  CASE WHEN EXISTS(
+    SELECT 1 FROM article_reads ar WHERE ar.user_id = ? AND ar.article_id = a.id
+  ) THEN 1 ELSE 0 END AS read
+FROM articles a
 JOIN feeds f ON f.source_feed_id = a.source_feed_id
 WHERE f.user_id = ?
 ORDER BY a.pub_date DESC NULLS LAST, a.created_at DESC
@@ -487,20 +492,40 @@ LIMIT ? OFFSET ?
 `
 
 type ListArticlesForUserParams struct {
-	UserID string `json:"user_id"`
-	Limit  int64  `json:"limit"`
-	Offset int64  `json:"offset"`
+	UserID   string `json:"user_id"`
+	UserID_2 string `json:"user_id_2"`
+	Limit    int64  `json:"limit"`
+	Offset   int64  `json:"offset"`
 }
 
-func (q *Queries) ListArticlesForUser(ctx context.Context, arg ListArticlesForUserParams) ([]Article, error) {
-	rows, err := q.db.QueryContext(ctx, listArticlesForUser, arg.UserID, arg.Limit, arg.Offset)
+type ListArticlesForUserRow struct {
+	ID           string  `json:"id"`
+	Title        *string `json:"title"`
+	Link         *string `json:"link"`
+	Description  *string `json:"description"`
+	Content      *string `json:"content"`
+	ImageUrl     *string `json:"image_url"`
+	PubDate      *string `json:"pub_date"`
+	Guid         *string `json:"guid"`
+	SourceFeedID *string `json:"source_feed_id"`
+	CreatedAt    string  `json:"created_at"`
+	Read         int64   `json:"read"`
+}
+
+func (q *Queries) ListArticlesForUser(ctx context.Context, arg ListArticlesForUserParams) ([]ListArticlesForUserRow, error) {
+	rows, err := q.db.QueryContext(ctx, listArticlesForUser,
+		arg.UserID,
+		arg.UserID_2,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Article
+	var items []ListArticlesForUserRow
 	for rows.Next() {
-		var i Article
+		var i ListArticlesForUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
@@ -512,6 +537,7 @@ func (q *Queries) ListArticlesForUser(ctx context.Context, arg ListArticlesForUs
 			&i.Guid,
 			&i.SourceFeedID,
 			&i.CreatedAt,
+			&i.Read,
 		); err != nil {
 			return nil, err
 		}
@@ -670,6 +696,53 @@ func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const markAllReadForUser = `-- name: MarkAllReadForUser :exec
+INSERT INTO article_reads (user_id, article_id)
+SELECT ?, a.id FROM articles a
+JOIN feeds f ON f.source_feed_id = a.source_feed_id
+WHERE f.user_id = ?
+ON CONFLICT(user_id, article_id) DO NOTHING
+`
+
+type MarkAllReadForUserParams struct {
+	UserID   string `json:"user_id"`
+	UserID_2 string `json:"user_id_2"`
+}
+
+func (q *Queries) MarkAllReadForUser(ctx context.Context, arg MarkAllReadForUserParams) error {
+	_, err := q.db.ExecContext(ctx, markAllReadForUser, arg.UserID, arg.UserID_2)
+	return err
+}
+
+const markArticleRead = `-- name: MarkArticleRead :exec
+INSERT INTO article_reads (user_id, article_id) VALUES (?, ?)
+ON CONFLICT(user_id, article_id) DO NOTHING
+`
+
+type MarkArticleReadParams struct {
+	UserID    string `json:"user_id"`
+	ArticleID string `json:"article_id"`
+}
+
+func (q *Queries) MarkArticleRead(ctx context.Context, arg MarkArticleReadParams) error {
+	_, err := q.db.ExecContext(ctx, markArticleRead, arg.UserID, arg.ArticleID)
+	return err
+}
+
+const markArticleUnread = `-- name: MarkArticleUnread :exec
+DELETE FROM article_reads WHERE user_id = ? AND article_id = ?
+`
+
+type MarkArticleUnreadParams struct {
+	UserID    string `json:"user_id"`
+	ArticleID string `json:"article_id"`
+}
+
+func (q *Queries) MarkArticleUnread(ctx context.Context, arg MarkArticleUnreadParams) error {
+	_, err := q.db.ExecContext(ctx, markArticleUnread, arg.UserID, arg.ArticleID)
+	return err
 }
 
 const setRateLimit = `-- name: SetRateLimit :exec

@@ -73,11 +73,30 @@ SELECT * FROM feeds WHERE user_id = ? AND url = ? LIMIT 1;
 DELETE FROM feeds WHERE id = ? AND user_id = ?;
 
 -- name: ListArticlesForUser :many
-SELECT DISTINCT a.* FROM articles a
+SELECT DISTINCT a.id, a.title, a.link, a.description, a.content, a.image_url,
+  a.pub_date, a.guid, a.source_feed_id, a.created_at,
+  CASE WHEN EXISTS(
+    SELECT 1 FROM article_reads ar WHERE ar.user_id = ? AND ar.article_id = a.id
+  ) THEN 1 ELSE 0 END AS read
+FROM articles a
 JOIN feeds f ON f.source_feed_id = a.source_feed_id
 WHERE f.user_id = ?
 ORDER BY a.pub_date DESC NULLS LAST, a.created_at DESC
 LIMIT ? OFFSET ?;
+
+-- name: MarkArticleRead :exec
+INSERT INTO article_reads (user_id, article_id) VALUES (?, ?)
+ON CONFLICT(user_id, article_id) DO NOTHING;
+
+-- name: MarkArticleUnread :exec
+DELETE FROM article_reads WHERE user_id = ? AND article_id = ?;
+
+-- name: MarkAllReadForUser :exec
+INSERT INTO article_reads (user_id, article_id)
+SELECT ?, a.id FROM articles a
+JOIN feeds f ON f.source_feed_id = a.source_feed_id
+WHERE f.user_id = ?
+ON CONFLICT(user_id, article_id) DO NOTHING;
 
 -- name: GetCachedImage :one
 SELECT content_type, data FROM image_cache WHERE source_url = ? LIMIT 1;

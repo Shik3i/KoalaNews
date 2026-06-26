@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { listArticles, type Article } from '$lib/api';
+  import { listArticles, markRead, markUnread, markAllRead, type Article } from '$lib/api';
   import { user } from '$lib/auth';
   import ArticleCard from '$lib/components/ArticleCard.svelte';
 
@@ -33,10 +33,41 @@
     void lang;
     load();
   });
+
+  // Optimistic read toggle: update the UI immediately, then persist; roll back on error.
+  async function toggleRead(article: Article, read: boolean) {
+    if (article.read === read) return;
+    articles = articles.map((a) => (a.id === article.id ? { ...a, read } : a));
+    try {
+      await (read ? markRead(article.id) : markUnread(article.id));
+    } catch {
+      articles = articles.map((a) => (a.id === article.id ? { ...a, read: !read } : a));
+    }
+  }
+
+  async function markAll() {
+    const prev = articles;
+    articles = articles.map((a) => ({ ...a, read: true }));
+    try {
+      await markAllRead();
+    } catch {
+      articles = prev;
+    }
+  }
+
+  const unreadCount = $derived(articles.filter((a) => !a.read).length);
 </script>
 
 {#if $user}
-  <h1 class="mb-4 text-xl font-semibold">Your feed</h1>
+  <div class="mb-4 flex items-center justify-between">
+    <h1 class="text-xl font-semibold">
+      Your feed
+      {#if unreadCount > 0}<span class="text-sm font-normal text-muted">· {unreadCount} unread</span>{/if}
+    </h1>
+    {#if unreadCount > 0}
+      <button class="surface px-3 py-1.5 text-sm" onclick={markAll}>Mark all read</button>
+    {/if}
+  </div>
 {:else}
   <div class="mb-5 flex items-center gap-2">
     {#each LANGS as [code, label]}
@@ -68,7 +99,7 @@
 {:else}
   <div class="flex flex-col" style="gap: var(--density-gap);">
     {#each articles as article (article.id)}
-      <ArticleCard {article} />
+      <ArticleCard {article} ontoggleread={$user ? (read) => toggleRead(article, read) : undefined} />
     {/each}
   </div>
 {/if}

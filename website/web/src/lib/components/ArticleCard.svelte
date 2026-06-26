@@ -2,7 +2,10 @@
   import type { Article } from '$lib/api';
   import { appearance } from '$lib/appearance';
 
-  let { article }: { article: Article } = $props();
+  let {
+    article,
+    ontoggleread,
+  }: { article: Article; ontoggleread?: (read: boolean) => void } = $props();
 
   const a = appearance;
 
@@ -31,8 +34,9 @@
 
 <article
   class="surface overflow-hidden transition-shadow hover:shadow-sm"
-  style="padding: var(--card-pad);"
+  style="padding: var(--card-pad); opacity: {article.read ? 0.55 : 1};"
   data-card-style={$a.cardStyle}
+  data-read={article.read}
 >
   <div class="flex gap-3" class:flex-col={$a.cardStyle === 'magazine'}>
     {#if $a.showImages && $a.cardStyle !== 'headline' && article.image_url}
@@ -53,6 +57,15 @@
         {#if $a.showSource && host(article.link)}<span>{host(article.link)}</span>{/if}
         {#if $a.showSource && $a.showDate && formatDate(article.pub_date)}<span>·</span>{/if}
         {#if $a.showDate && formatDate(article.pub_date)}<span>{formatDate(article.pub_date)}</span>{/if}
+        {#if ontoggleread}
+          <button
+            class="ml-auto shrink-0 rounded px-2 py-0.5 transition-colors hover:underline"
+            onclick={() => ontoggleread?.(!article.read)}
+            title={article.read ? 'Mark as unread' : 'Mark as read'}
+          >
+            {article.read ? '○ Unread' : '✓ Read'}
+          </button>
+        {/if}
       </div>
 
       <h2
@@ -60,8 +73,11 @@
         class:text-lg={$a.cardStyle === 'magazine'}
         class:text-base={$a.cardStyle !== 'magazine'}
       >
-        <a href={article.link ?? '#'} target="_blank" rel="noopener noreferrer nofollow"
-          >{article.title ?? 'Untitled'}</a
+        <a
+          href={article.link ?? '#'}
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          onclick={() => ontoggleread?.(true)}>{article.title ?? 'Untitled'}</a
         >
       </h2>
 
