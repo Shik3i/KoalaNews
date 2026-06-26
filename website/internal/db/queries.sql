@@ -12,6 +12,14 @@ RETURNING *;
 -- name: CountUsers :one
 SELECT count(*) FROM users;
 
+-- name: TopSourceFeedsByArticleCount :many
+SELECT sf.title, sf.url, count(a.id) AS article_count
+FROM source_feeds sf
+LEFT JOIN articles a ON a.source_feed_id = sf.id
+GROUP BY sf.id
+ORDER BY article_count DESC
+LIMIT ?;
+
 -- name: GetSetting :one
 SELECT value FROM settings WHERE key = ? LIMIT 1;
 

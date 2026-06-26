@@ -1163,6 +1163,44 @@ func (q *Queries) SetUserRoleBanned(ctx context.Context, arg SetUserRoleBannedPa
 	return err
 }
 
+const topSourceFeedsByArticleCount = `-- name: TopSourceFeedsByArticleCount :many
+SELECT sf.title, sf.url, count(a.id) AS article_count
+FROM source_feeds sf
+LEFT JOIN articles a ON a.source_feed_id = sf.id
+GROUP BY sf.id
+ORDER BY article_count DESC
+LIMIT ?
+`
+
+type TopSourceFeedsByArticleCountRow struct {
+	Title        *string `json:"title"`
+	Url          string  `json:"url"`
+	ArticleCount int64   `json:"article_count"`
+}
+
+func (q *Queries) TopSourceFeedsByArticleCount(ctx context.Context, limit int64) ([]TopSourceFeedsByArticleCountRow, error) {
+	rows, err := q.db.QueryContext(ctx, topSourceFeedsByArticleCount, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TopSourceFeedsByArticleCountRow
+	for rows.Next() {
+		var i TopSourceFeedsByArticleCountRow
+		if err := rows.Scan(&i.Title, &i.Url, &i.ArticleCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateSourceFeedMeta = `-- name: UpdateSourceFeedMeta :exec
 UPDATE source_feeds
 SET title = ?, description = ?, language = ?, last_fetched_at = datetime('now')

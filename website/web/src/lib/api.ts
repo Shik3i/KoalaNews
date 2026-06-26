@@ -101,6 +101,17 @@ export function setFeedCategory(
   return send('PATCH', `/api/feeds/${feedId}/category`, { category_id: categoryId });
 }
 
+export type Statistics = {
+  users: number;
+  feeds: number;
+  articles: number;
+  topFeeds: { title: string | null; url: string; articleCount: number }[];
+};
+
+export function getStatistics(): Promise<Statistics> {
+  return getJSON<Statistics>('/api/statistics');
+}
+
 export function listSmartFeeds(): Promise<SmartFeed[]> {
   return getJSON<SmartFeed[]>('/api/smart-feeds');
 }

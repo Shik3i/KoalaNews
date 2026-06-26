@@ -23,6 +23,7 @@
       <a href="/" class="text-lg font-semibold tracking-tight"> 🐨 <span>KoalaNews</span> </a>
 
       <nav class="flex items-center gap-2 text-sm">
+        <a href="/statistics" class="surface px-3 py-1.5">Statistics</a>
         {#if $user}
           <a href="/dashboard" class="surface px-3 py-1.5">Dashboard</a>
           {#if $user.role === 'ADMIN'}

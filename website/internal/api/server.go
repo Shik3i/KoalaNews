@@ -35,6 +35,7 @@ func (s *Server) Router() http.Handler {
 		r.Get("/health", s.handleHealth)
 		r.Get("/articles", s.handleListArticles)
 		r.Get("/image", s.handleImage)
+		r.Get("/statistics", s.handleStatistics)
 
 		r.Post("/auth/register", s.handleRegister)
 		r.Post("/auth/login", s.handleLogin)
