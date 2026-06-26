@@ -1,6 +1,6 @@
 # KoalaNews — Migration Plan: Next.js → Go + SvelteKit (Strangler Fig)
 
-Status: **In Arbeit** — Fundament + RSS-Pipeline lauffähig (vertikaler Schnitt steht).
+Status: **Bereit für Cutover** — volle Feature-Parität, CI grün, Reverse-Proxy-Umschaltung getestet. Es fehlt nur noch der eigentliche Produktions-Schnitt.
 
 ## Fortschritt
 
@@ -41,12 +41,14 @@ Status: **In Arbeit** — Fundament + RSS-Pipeline lauffähig (vertikaler Schnit
 
 - [x] **CI-Pipeline** — `.github/workflows/ci.yml` + `docker-build.yml` waren noch auf dem alten npm/Prisma-Next.js-Stack stehengeblieben (liefen gegen ein nicht mehr existierendes `package-lock.json`/`prisma`-Setup). Umgestellt auf den neuen Stack: `ci.yml` zweistufig — `frontend` (Svelte-Check + `vite build` in `website/web`, Artifact-Upload) → `backend` (Go vet/test/build in `website`, lädt den Frontend-Build als Artifact für `go:embed`-Parität). `docker-build.yml`s `test`-Job ebenso auf `go vet`/`go test` umgestellt (Docker-Build-Job selbst unverändert, baut intern bereits Node→Go im Dockerfile). **Verifiziert:** `go vet`/`go test ./...` lokal grün, `npm run check`/`npm run build` in `web/` grün, `docker build` + Container-Smoke-Test (`/api/health` → 200, RSS-Sync läuft an) erfolgreich, beide YAMLs syntaktisch validiert.
 
+- [x] **Cutover-Setup (Reverse-Proxy)** — Root-`docker-compose.yml`: `koalanews` (neu) + `koalanews_legacy` (alt) laufen parallel, jeweils eigenes `/data`-Volume, dahinter ein `caddy:2-alpine`-Proxy auf Port 80. Umschalten = `Caddyfile`-Zeile (`reverse_proxy koalanews:3000` ↔ `koalanews_legacy:3000`) ändern + `docker compose exec proxy caddy reload --config /etc/caddy/Caddyfile` (kein Container-Restart, kein Downtime). Root-`.env.example` für beide Stacks' Secrets. **Verifiziert:** `docker compose up` (beide Apps + Proxy), `curl localhost/api/health` → neue App; Caddyfile umgeschrieben + reload → Legacy-App (200 auf `/`); zurückgeschwenkt → wieder neue App, alles ohne Downtime.
+
 ### Als Nächstes
-Volle Feature-Parität laut Scope-Entscheidung erreicht (Auth, Dashboard, Appearance, Admin, Read-State, OPML, Kategorien, Smart-Feeds, Statistiken, i18n, Backups). CI-Pipeline auf den neuen Stack umgestellt. Verbleibend für Produktionsreife: Cutover-Strategie (Reverse-Proxy-Umschaltung legacy → neu) — siehe unten.
+Volle Feature-Parität laut Scope-Entscheidung erreicht (Auth, Dashboard, Appearance, Admin, Read-State, OPML, Kategorien, Smart-Feeds, Statistiken, i18n, Backups). CI-Pipeline und Cutover-Setup stehen. **Migration ist bereit für den Produktions-Cutover** — verbleibend ist nur noch der eigentliche Schnitt (echte Daten von `website_legacy` zu `website` migrieren bzw. weiterverwenden, da gleiches SQLite-Schema, dann Proxy umschalten) und das Entfernen von `website_legacy` nach 1–2 stabilen Releases.
 - [x] **Phase 4** — restliche API-Routes: feeds CRUD, categories, smart-feeds, statistics, admin (users/settings/backups), read-state, OPML.
 - [x] **Phase 5 (Rest)** — Seiten: login/register, dashboard (Feeds verwalten), settings, statistics, admin. i18n (de/en/fr).
 - [x] **Phase 6** — GFS-Backups (CLI-äquivalent via Admin-Endpoint).
-- [ ] **Phase 7 (Rest)** — Cutover via Reverse-Proxy (Parallelbetrieb legacy/neu, schrittweises Umrouten).
+- [x] **Phase 7** — Cutover via Reverse-Proxy (Parallelbetrieb legacy/neu, schrittweises Umrouten via Caddy).
 
 ---
 
@@ -157,8 +159,8 @@ Referenz: `website_legacy/scripts/backup.mjs`, `src/lib/database-backups.ts`
 ## Phase 7 — Docker + Cutover
 
 - [x] Multi-stage Dockerfile: `node` baut Svelte → `golang` baut Binary (CGO_ENABLED=0) → `distroless:static-debian12:nonroot`. **25,3 MB** erreicht.
-- [ ] `docker-compose.yml`: gleiche Volume-Mounts (`/data`), gleiche `DATABASE_URL`-Semantik (file path).
-- [ ] Parallelbetrieb: legacy auf altem Port, neu auf neuem; Reverse-Proxy schrittweise umrouten. Bei grünem Smoke-Test Cutover, `website_legacy` bleibt 1–2 Releases als Fallback.
+- [x] `docker-compose.yml`: gleiche Volume-Mounts (`/data`), gleiche `DATABASE_URL`-Semantik (file path) — pro App ein eigenes Volume, da unterschiedliche DB-Dateinamen (`koalanews.db` vs. `dev.db`).
+- [x] Parallelbetrieb: legacy + neu im selben Compose-Stack, Caddy-Reverse-Proxy schaltet per `Caddyfile`-Edit + `caddy reload` zwischen ihnen um (kein Downtime). `website_legacy` bleibt 1–2 Releases als Fallback.
 - [x] CI (`.github/workflows`): Go test/vet/build + Svelte build statt npm-only.
 
 ---
