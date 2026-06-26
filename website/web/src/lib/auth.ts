@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { setServerBacked, loadServerAppearance } from './appearance';
 
 export type User = {
   id: string;
@@ -23,6 +24,9 @@ async function asUser(res: Response): Promise<User> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
   user.set(data as User);
+  // From now on, appearance changes persist to the server. Load any saved prefs.
+  setServerBacked(true);
+  await loadServerAppearance();
   return data as User;
 }
 
@@ -31,6 +35,10 @@ export async function fetchMe(): Promise<void> {
     const res = await fetch('/api/auth/me');
     const data = await res.json();
     user.set(data.user ?? null);
+    if (data.user) {
+      setServerBacked(true);
+      await loadServerAppearance();
+    }
   } catch {
     user.set(null);
   } finally {
@@ -49,4 +57,6 @@ export async function register(email: string, password: string, name: string): P
 export async function logout(): Promise<void> {
   await post('/api/auth/logout', {});
   user.set(null);
+  // Stop syncing to the server; local (localStorage) appearance stays as-is.
+  setServerBacked(false);
 }

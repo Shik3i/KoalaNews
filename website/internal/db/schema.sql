@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     card_style        TEXT NOT NULL DEFAULT 'magazine',
     density           TEXT NOT NULL DEFAULT 'comfortable',
     font_scale        TEXT NOT NULL DEFAULT 'medium',
-    accent_color      TEXT NOT NULL DEFAULT 'blue',
+    accent_color      TEXT NOT NULL DEFAULT '#2563eb',
     show_images       INTEGER NOT NULL DEFAULT 1,
     show_source       INTEGER NOT NULL DEFAULT 1,
     show_date         INTEGER NOT NULL DEFAULT 1,

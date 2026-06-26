@@ -21,8 +21,11 @@ Status: **In Arbeit** — Fundament + RSS-Pipeline lauffähig (vertikaler Schnit
 
 - [x] **Dashboard / Feed-Verwaltung** — per-User Feeds: add (SSRF-validiert, SourceFeed-Sharing → kein Doppel-Download), list, delete (Ownership-Check). Personalisierte Artikelliste: eingeloggte User sehen ihre Abos, Gäste den Locale-Feed (`?scope=public` erzwingt Locale). Endpoints: `GET/POST /api/feeds`, `DELETE /api/feeds/{id}`. Frontend: Dashboard mit Add-Form + Liste, Home-Page „Your feed". **End-to-end verifiziert** (Feed hinzufügen → Artikel erscheinen; dup 409, unauth 401, SSRF-localhost blocked). HTML-Entity-Decoding in Beschreibungen gefixt.
 
+- [x] **Appearance-Prefs in DB** — `GET/PUT /api/preferences` (requireAuth), Enum-Sanitization. Frontend-Store synct bei eingeloggten Usern automatisch zum Server (fire-and-forget PUT) und lädt Server-Prefs bei Login/`fetchMe`. **Verifiziert:** Prefs gesetzt → localStorage gelöscht → Reload → UI kommt nachweislich vom Server (Sepia+Grün). localStorage bleibt Offline-Quelle für Gäste.
+
 ### Als Nächstes
-- [ ] Appearance-Prefs für eingeloggte User in DB persistieren (`/api/preferences`, GET/PUT) — Store schon vorbereitet.
+- [ ] **Admin-Panel** — Userverwaltung (list/ban/role), Settings, DB-Größe.
+- [ ] Weitere Parität: Statistiken, Smart-Feeds, Kategorien, OPML, Read-State, i18n, Backups.
 - [ ] **Phase 4** — restliche API-Routes: feeds CRUD, categories, smart-feeds, statistics, admin (users/settings/backups), read-state, OPML.
 - [ ] **Phase 5 (Rest)** — Seiten: login/register, dashboard (Feeds verwalten), settings, statistics, admin. i18n (de/en/fr).
 - [ ] **Phase 6/7** — GFS-Backups (CLI + admin), Cutover via Reverse-Proxy.

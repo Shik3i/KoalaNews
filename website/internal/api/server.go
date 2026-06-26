@@ -44,6 +44,9 @@ func (s *Server) Router() http.Handler {
 		r.Get("/feeds", s.requireAuth(s.handleListFeeds))
 		r.Post("/feeds", s.requireAuth(s.handleCreateFeed))
 		r.Delete("/feeds/{id}", s.requireAuth(s.handleDeleteFeed))
+
+		r.Get("/preferences", s.requireAuth(s.handleGetPreferences))
+		r.Put("/preferences", s.requireAuth(s.handlePutPreferences))
 	})
 
 	// Static frontend (SvelteKit adapter-static) with SPA fallback.

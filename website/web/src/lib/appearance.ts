@@ -54,20 +54,38 @@ export function apply(a: Appearance) {
   el.style.setProperty('--user-accent', a.accent);
 }
 
+// When true, changes are also persisted to the server (logged-in users).
+let serverBacked = false;
+
+function saveToServer(value: Appearance) {
+  if (!browser || !serverBacked) return;
+  // Fire-and-forget; localStorage remains the offline source of truth.
+  void fetch('/api/preferences', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value),
+  }).catch(() => {});
+}
+
 function createStore() {
   const initial = load();
   const { subscribe, set, update } = writable<Appearance>(initial);
 
   if (browser) apply(initial);
 
+  function persist(value: Appearance, toServer: boolean) {
+    if (browser) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+      apply(value);
+    }
+    if (toServer) saveToServer(value);
+    set(value);
+  }
+
   return {
     subscribe,
     set(value: Appearance) {
-      if (browser) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-        apply(value);
-      }
-      set(value);
+      persist(value, true);
     },
     patch(partial: Partial<Appearance>) {
       update((current) => {
@@ -76,13 +94,36 @@ function createStore() {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
           apply(next);
         }
+        saveToServer(next);
         return next;
       });
     },
     reset() {
       this.set({ ...DEFAULT_APPEARANCE });
     },
+    /** Replace local state from the server without echoing back a save. */
+    adoptFromServer(value: Appearance) {
+      persist(value, false);
+    },
   };
 }
 
 export const appearance = createStore();
+
+/** Toggle server persistence (called on login/logout). */
+export function setServerBacked(enabled: boolean) {
+  serverBacked = enabled;
+}
+
+/** Load the signed-in user's saved appearance and apply it locally. */
+export async function loadServerAppearance() {
+  if (!browser) return;
+  try {
+    const res = await fetch('/api/preferences');
+    if (!res.ok) return;
+    const remote = (await res.json()) as Partial<Appearance>;
+    appearance.adoptFromServer({ ...DEFAULT_APPEARANCE, ...remote });
+  } catch {
+    // keep local state on failure
+  }
+}
