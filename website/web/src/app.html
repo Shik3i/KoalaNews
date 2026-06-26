@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%sveltekit.assets%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KoalaNews</title>
+    <script>
+      // Apply persisted appearance before first paint to avoid a flash.
+      try {
+        const raw = localStorage.getItem('koalanews:appearance');
+        if (raw) {
+          const a = JSON.parse(raw);
+          const el = document.documentElement;
+          if (a.theme) el.dataset.theme = a.theme;
+          if (a.density) el.dataset.density = a.density;
+          if (a.cardStyle) el.dataset.cardStyle = a.cardStyle;
+          if (a.fontScale) el.dataset.fontScale = a.fontScale;
+          if (a.accent) el.style.setProperty('--user-accent', a.accent);
+        }
+      } catch (e) {}
+    </script>
+    %sveltekit.head%
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
+</html>

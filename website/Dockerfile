@@ -1,69 +1,35 @@
-FROM node:26-slim AS base
-RUN apt-get update -qq && apt-get install -y --no-install-recommends openssl sqlite3 ca-certificates && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
+# syntax=docker/dockerfile:1
 
-# --- builder ---
-FROM base AS builder
-COPY package.json package-lock.json* ./
-RUN npm ci --ignore-scripts
+# --- frontend build (SvelteKit adapter-static) ---
+FROM node:22-slim AS web
+WORKDIR /web
+COPY web/ ./
+# Build the SvelteKit static output if the project is scaffolded; otherwise the
+# committed web/build placeholder is used. Either way build/ exists for go:embed.
+RUN if [ -f package.json ]; then npm ci && npm run build; fi && mkdir -p build
+
+# --- go build ---
+FROM golang:1.26 AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
-RUN npx prisma generate
-RUN npm run build
-# Generate SQL schema for DB init at runtime
-RUN npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script > /tmp/schema.sql
+# Overlay the freshly built frontend so go:embed picks it up.
+COPY --from=web /web/build ./web/build
+ENV CGO_ENABLED=0
+RUN go build -trimpath -ldflags="-s -w" -o /out/koalanews ./cmd/koalanews
+# Pre-create the data dir so it can be copied with nonroot ownership below.
+RUN mkdir -p /data
 
-# --- runner ---
-FROM base AS runner
+# --- runtime: distroless static (no shell, no libc, tiny) ---
+FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
-
-ENV NODE_ENV=production
-
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-
-# Prisma schema + migrations + init SQL
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/prisma.config.mjs ./
-COPY --from=builder /tmp/schema.sql ./
-
-# Next.js standalone output (includes traced node_modules)
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-
-# Overlay root-scope node_modules for packages marked serverExternalPackages
-# Prisma with libsql adapter
-COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
-COPY --from=builder /app/node_modules/@prisma/adapter-libsql ./node_modules/@prisma/adapter-libsql
-COPY --from=builder /app/node_modules/@prisma/driver-adapter-utils ./node_modules/@prisma/driver-adapter-utils
-COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
-COPY --from=builder /app/node_modules/@neon-rs ./node_modules/@neon-rs
-COPY --from=builder /app/node_modules/js-base64 ./node_modules/js-base64
-COPY --from=builder /app/node_modules/detect-libc ./node_modules/detect-libc
-COPY --from=builder /app/node_modules/ws ./node_modules/ws
-COPY --from=builder /app/node_modules/tslib ./node_modules/tslib
-COPY --from=builder /app/node_modules/async-mutex ./node_modules/async-mutex
-COPY --from=builder /app/node_modules/promise-limit ./node_modules/promise-limit
-COPY --from=builder /app/node_modules/libsql ./node_modules/libsql
-
-# Static assets
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Scripts
-COPY --from=builder /app/scripts/init.mjs ./init.mjs
-COPY --from=builder /app/scripts/backup.mjs ./backup.mjs
-
-# Script dependencies (not traced by Next.js standalone)
-COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
-
-RUN mkdir -p /data && chown nextjs:nodejs /data
-
-USER nextjs
-
+COPY --from=build /out/koalanews /app/koalanews
+COPY --from=build --chown=nonroot:nonroot /data /data
 EXPOSE 3000
-
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-ENV DATABASE_URL="file:/data/koalanews.db"
-
-CMD ["sh", "-c", "if ! sqlite3 /data/koalanews.db \"SELECT count(*) FROM sqlite_master WHERE type='table'\" 2>/dev/null | grep -q '^[1-9]'; then sqlite3 /data/koalanews.db < /app/schema.sql 2>/dev/null || true; fi && node /app/init.mjs && node /app/server.js"]
+ENV ADDR=":3000" \
+    DATABASE_URL="file:/data/koalanews.db" \
+    SYNC_INTERVAL="15m"
+VOLUME ["/data"]
+USER nonroot:nonroot
+ENTRYPOINT ["/app/koalanews"]

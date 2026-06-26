@@ -1,0 +1,15 @@
+# Go
+/koalanews
+*.test
+
+# local databases
+*.db
+*.db-wal
+*.db-shm
+
+# SvelteKit / node
+web/node_modules/
+web/.svelte-kit/
+# web/build is generated, but keep a placeholder index.html for go:embed
+web/build/*
+!web/build/index.html

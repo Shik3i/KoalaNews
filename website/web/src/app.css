@@ -1,0 +1,127 @@
+@import 'tailwindcss';
+
+/*
+  Theming model
+  -------------
+  Every color/space token is a CSS variable. Themes are sets of variable
+  overrides selected via `data-theme` on <html>. The user accent is a single
+  free-form color (`--user-accent`) the user can pick, overriding the theme accent.
+  Card style / density / font scale are data-attributes that components react to.
+  This makes the UI "extremely customizable" without a combinatorial design zoo.
+*/
+
+:root {
+  --bg: #ffffff;
+  --bg-elevated: #f6f7f9;
+  --bg-sunken: #eceef1;
+  --border: #e2e5ea;
+  --text: #14171a;
+  --text-muted: #5b6470;
+  --accent: #2563eb;
+  --accent-contrast: #ffffff;
+  --radius: 0.625rem;
+  --font-scale: 1;
+  --density-gap: 1rem;
+  --card-pad: 1rem;
+  --maxw: 56rem;
+}
+
+/* User-chosen accent overrides the theme accent when set. */
+:root {
+  --accent: var(--user-accent, #2563eb);
+}
+
+[data-theme='dark'] {
+  --bg: #0f1115;
+  --bg-elevated: #171a21;
+  --bg-sunken: #0a0c0f;
+  --border: #262b34;
+  --text: #e7eaee;
+  --text-muted: #9aa3af;
+  --accent: var(--user-accent, #3b82f6);
+  --accent-contrast: #ffffff;
+}
+
+[data-theme='sepia'] {
+  --bg: #f4ecd8;
+  --bg-elevated: #efe5cc;
+  --bg-sunken: #e7dabb;
+  --border: #d9c9a3;
+  --text: #3a2f22;
+  --text-muted: #6b5b46;
+  --accent: var(--user-accent, #9a6b3f);
+  --accent-contrast: #fffaf0;
+}
+
+[data-theme='midnight'] {
+  --bg: #0b1020;
+  --bg-elevated: #131a2e;
+  --bg-sunken: #070b16;
+  --border: #1f2942;
+  --text: #dbe2f0;
+  --text-muted: #8a96b3;
+  --accent: var(--user-accent, #6366f1);
+  --accent-contrast: #ffffff;
+}
+
+/* System theme follows OS preference when data-theme is unset or 'system'. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]),
+  [data-theme='system'] {
+    --bg: #0f1115;
+    --bg-elevated: #171a21;
+    --bg-sunken: #0a0c0f;
+    --border: #262b34;
+    --text: #e7eaee;
+    --text-muted: #9aa3af;
+    --accent: var(--user-accent, #3b82f6);
+  }
+}
+
+/* Font scale */
+[data-font-scale='small'] {
+  --font-scale: 0.9;
+}
+[data-font-scale='large'] {
+  --font-scale: 1.15;
+}
+
+/* Density */
+[data-density='compact'] {
+  --density-gap: 0.6rem;
+  --card-pad: 0.75rem;
+}
+[data-density='dense'] {
+  --density-gap: 0.35rem;
+  --card-pad: 0.5rem;
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  font-size: calc(16px * var(--font-scale));
+  color-scheme: light dark;
+}
+
+body {
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Reusable semantic utility classes driven by the tokens above. */
+.surface {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.btn-accent {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-radius: var(--radius);
+}
+.text-muted {
+  color: var(--text-muted);
+}
+.link-accent {
+  color: var(--accent);
+}
