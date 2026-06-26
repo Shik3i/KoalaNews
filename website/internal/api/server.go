@@ -14,12 +14,13 @@ import (
 )
 
 type Server struct {
-	store *db.Store
-	web   fs.FS // embedded SvelteKit static build
+	store  *db.Store
+	web    fs.FS // embedded SvelteKit static build
+	dbPath string
 }
 
-func NewServer(store *db.Store, web fs.FS) *Server {
-	return &Server{store: store, web: web}
+func NewServer(store *db.Store, web fs.FS, dbPath string) *Server {
+	return &Server{store: store, web: web, dbPath: dbPath}
 }
 
 func (s *Server) Router() http.Handler {
@@ -68,6 +69,9 @@ func (s *Server) Router() http.Handler {
 		r.Get("/admin/users", s.requireAdmin(s.handleAdminListUsers))
 		r.Patch("/admin/users/{id}", s.requireAdmin(s.handleAdminUpdateUser))
 		r.Get("/admin/stats", s.requireAdmin(s.handleAdminStats))
+		r.Get("/admin/backups", s.requireAdmin(s.handleListBackups))
+		r.Post("/admin/backups", s.requireAdmin(s.handleCreateBackup))
+		r.Get("/admin/backups/{name}", s.requireAdmin(s.handleDownloadBackup))
 	})
 
 	// Static frontend (SvelteKit adapter-static) with SPA fallback.

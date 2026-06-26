@@ -6,13 +6,18 @@
     adminStats,
     adminListUsers,
     adminUpdateUser,
+    listBackups,
+    createBackup,
     type AdminUser,
     type AdminStats,
+    type Backup,
   } from '$lib/api';
   import { t } from '$lib/i18n';
 
   let stats = $state<AdminStats | null>(null);
   let users = $state<AdminUser[]>([]);
+  let backups = $state<Backup[]>([]);
+  let backupBusy = $state(false);
   let loading = $state(true);
   let error = $state<string | null>(null);
 
@@ -25,11 +30,22 @@
   async function refresh() {
     loading = true;
     try {
-      [stats, users] = await Promise.all([adminStats(), adminListUsers()]);
+      [stats, users, backups] = await Promise.all([adminStats(), adminListUsers(), listBackups()]);
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load';
     } finally {
       loading = false;
+    }
+  }
+
+  async function runBackup() {
+    backupBusy = true;
+    try {
+      backups = await createBackup();
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Backup failed';
+    } finally {
+      backupBusy = false;
     }
   }
 
@@ -140,4 +156,28 @@
       </tbody>
     </table>
   </div>
+
+  <div class="mt-8 mb-3 flex items-center justify-between">
+    <h2 class="text-lg font-semibold">Backups</h2>
+    <button class="surface px-3 py-1.5 text-sm disabled:opacity-60" disabled={backupBusy} onclick={runBackup}>
+      {backupBusy ? 'Creating…' : 'Create backup now'}
+    </button>
+  </div>
+  {#if backups.length === 0}
+    <p class="text-muted">No backups yet.</p>
+  {:else}
+    <ul class="space-y-2">
+      {#each backups as b (b.name)}
+        <li class="surface flex items-center justify-between gap-3 px-4 py-3 text-sm">
+          <div class="min-w-0">
+            <p class="font-medium">{b.name}</p>
+            <p class="text-xs text-muted">{b.kind} · {fmtBytes(b.sizeBytes)} · {new Date(b.createdAt).toLocaleString()}</p>
+          </div>
+          <a class="surface shrink-0 px-3 py-1.5" href={`/api/admin/backups/${encodeURIComponent(b.name)}`} download
+            >Download</a
+          >
+        </li>
+      {/each}
+    </ul>
+  {/if}
 {/if}

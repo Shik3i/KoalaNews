@@ -182,6 +182,23 @@ export function adminStats(): Promise<AdminStats> {
   return getJSON<AdminStats>('/api/admin/stats');
 }
 
+export type Backup = {
+  name: string;
+  kind: 'daily' | 'weekly' | 'monthly';
+  sizeBytes: number;
+  createdAt: string;
+};
+
+export async function listBackups(): Promise<Backup[]> {
+  const r = await getJSON<{ backups: Backup[] }>('/api/admin/backups');
+  return r.backups;
+}
+
+export async function createBackup(): Promise<Backup[]> {
+  const r = await send<{ backups: Backup[] }>('POST', '/api/admin/backups');
+  return r.backups;
+}
+
 export function adminListUsers(): Promise<AdminUser[]> {
   return getJSON<AdminUser[]>('/api/admin/users');
 }
