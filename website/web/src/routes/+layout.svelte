@@ -3,6 +3,8 @@
   import { onMount } from 'svelte';
   import AppearancePanel from '$lib/components/AppearancePanel.svelte';
   import { user, fetchMe, logout } from '$lib/auth';
+  import { locale, t } from '$lib/i18n';
+  import { LOCALES, LOCALE_LABELS } from '$lib/messages';
 
   let { children } = $props();
   let panelOpen = $state(false);
@@ -23,19 +25,29 @@
       <a href="/" class="text-lg font-semibold tracking-tight"> 🐨 <span>KoalaNews</span> </a>
 
       <nav class="flex items-center gap-2 text-sm">
-        <a href="/statistics" class="surface px-3 py-1.5">Statistics</a>
+        <a href="/statistics" class="surface px-3 py-1.5">{$t('nav.statistics')}</a>
         {#if $user}
-          <a href="/dashboard" class="surface px-3 py-1.5">Dashboard</a>
+          <a href="/dashboard" class="surface px-3 py-1.5">{$t('nav.dashboard')}</a>
           {#if $user.role === 'ADMIN'}
-            <a href="/admin" class="surface px-3 py-1.5">Admin</a>
+            <a href="/admin" class="surface px-3 py-1.5">{$t('nav.admin')}</a>
           {/if}
-          <button class="surface px-3 py-1.5" onclick={handleLogout}>Logout</button>
+          <button class="surface px-3 py-1.5" onclick={handleLogout}>{$t('nav.logout')}</button>
         {:else}
-          <a href="/login" class="surface px-3 py-1.5">Sign in</a>
+          <a href="/login" class="surface px-3 py-1.5">{$t('nav.signIn')}</a>
         {/if}
         <button class="surface px-3 py-1.5" onclick={() => (panelOpen = !panelOpen)}>
-          Appearance
+          {$t('nav.appearance')}
         </button>
+        <select
+          class="surface px-2 py-1.5"
+          style="background: var(--bg-elevated); color: var(--text);"
+          bind:value={$locale}
+          aria-label={$t('nav.language')}
+        >
+          {#each LOCALES as code}
+            <option value={code}>{LOCALE_LABELS[code]}</option>
+          {/each}
+        </select>
       </nav>
     </div>
   </header>

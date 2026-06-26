@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getStatistics, type Statistics } from '$lib/api';
+  import { t } from '$lib/i18n';
 
   let stats = $state<Statistics | null>(null);
   let error = $state<string | null>(null);
@@ -16,16 +17,16 @@
   const statCards = $derived(
     stats
       ? [
-          ['Users', stats.users],
-          ['Feeds', stats.feeds],
-          ['Articles', stats.articles],
+          [$t('statistics.users'), stats.users],
+          [$t('statistics.feeds'), stats.feeds],
+          [$t('statistics.articles'), stats.articles],
         ]
       : [],
   );
 </script>
 
-<h1 class="mb-1 text-2xl font-semibold">Statistics</h1>
-<p class="mb-6 text-sm text-muted">KoalaNews by the numbers.</p>
+<h1 class="mb-1 text-2xl font-semibold">{$t('statistics.title')}</h1>
+<p class="mb-6 text-sm text-muted">{$t('statistics.subtitle')}</p>
 
 {#if error}
   <p class="text-sm" style="color: #ef4444;">{error}</p>
@@ -45,9 +46,9 @@
     {/each}
   </section>
 
-  <h2 class="mb-3 text-lg font-semibold">Top feeds</h2>
+  <h2 class="mb-3 text-lg font-semibold">{$t('statistics.topFeeds')}</h2>
   {#if stats.topFeeds.length === 0}
-    <p class="text-muted">No feeds yet.</p>
+    <p class="text-muted">{$t('statistics.noFeeds')}</p>
   {:else}
     <ol class="space-y-2">
       {#each stats.topFeeds as feed, i}
@@ -59,7 +60,7 @@
               <p class="truncate text-xs text-muted">{feed.url}</p>
             </div>
           </div>
-          <span class="shrink-0 text-sm text-muted">{feed.articleCount} articles</span>
+          <span class="shrink-0 text-sm text-muted">{feed.articleCount} {$t('statistics.articlesSuffix')}</span>
         </li>
       {/each}
     </ol>

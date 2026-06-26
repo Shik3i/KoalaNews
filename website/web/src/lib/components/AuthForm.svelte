@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { login, register } from '$lib/auth';
+  import { t } from '$lib/i18n';
 
   let { mode }: { mode: 'login' | 'register' } = $props();
 
@@ -33,7 +34,7 @@
 
 <div class="mx-auto max-w-sm">
   <h1 class="mb-5 text-2xl font-semibold">
-    {isRegister ? 'Create account' : 'Sign in'}
+    {isRegister ? $t('auth.registerTitle') : $t('auth.loginTitle')}
   </h1>
 
   <form class="space-y-3" onsubmit={submit}>
@@ -41,7 +42,7 @@
       <input
         class="surface w-full px-3 py-2"
         style="background: var(--bg-elevated); color: var(--text);"
-        placeholder="Name (optional)"
+        placeholder={$t('auth.namePlaceholder')}
         bind:value={name}
         autocomplete="name"
       />
@@ -50,7 +51,7 @@
       class="surface w-full px-3 py-2"
       style="background: var(--bg-elevated); color: var(--text);"
       type="email"
-      placeholder="Email"
+      placeholder={$t('auth.email')}
       bind:value={email}
       autocomplete="email"
       required
@@ -59,7 +60,7 @@
       class="surface w-full px-3 py-2"
       style="background: var(--bg-elevated); color: var(--text);"
       type="password"
-      placeholder={isRegister ? 'Password (min 8 chars)' : 'Password'}
+      placeholder={isRegister ? $t('auth.passwordMin') : $t('auth.password')}
       bind:value={password}
       autocomplete={isRegister ? 'new-password' : 'current-password'}
       required
@@ -70,15 +71,15 @@
     {/if}
 
     <button class="btn-accent w-full px-3 py-2 font-medium disabled:opacity-60" disabled={busy}>
-      {busy ? '…' : isRegister ? 'Create account' : 'Sign in'}
+      {busy ? '…' : isRegister ? $t('auth.submitRegister') : $t('auth.submitLogin')}
     </button>
   </form>
 
   <p class="mt-4 text-sm text-muted">
     {#if isRegister}
-      Already have an account? <a class="link-accent" href="/login">Sign in</a>
+      {$t('auth.haveAccount')} <a class="link-accent" href="/login">{$t('auth.login')}</a>
     {:else}
-      No account yet? <a class="link-accent" href="/register">Register</a>
+      {$t('auth.noAccount')} <a class="link-accent" href="/register">{$t('auth.register')}</a>
     {/if}
   </p>
 </div>

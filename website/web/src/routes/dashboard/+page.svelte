@@ -18,6 +18,7 @@
     type Category,
     type SmartFeed,
   } from '$lib/api';
+  import { t } from '$lib/i18n';
 
   let feeds = $state<Feed[]>([]);
   let categories = $state<Category[]>([]);
@@ -174,15 +175,15 @@
   });
 </script>
 
-<h1 class="mb-1 text-2xl font-semibold">Your feeds</h1>
-<p class="mb-5 text-sm text-muted">Add RSS or Atom feeds. Articles from all your feeds appear on the home page.</p>
+<h1 class="mb-1 text-2xl font-semibold">{$t('dashboard.title')}</h1>
+<p class="mb-5 text-sm text-muted">{$t('dashboard.subtitle')}</p>
 
 <form class="mb-6 flex flex-wrap gap-2" onsubmit={add}>
   <input
     class="surface min-w-0 flex-1 px-3 py-2"
     style="background: var(--bg-elevated); color: var(--text);"
     type="url"
-    placeholder="https://example.com/rss.xml"
+    placeholder={$t('dashboard.urlPlaceholder')}
     bind:value={url}
     required
   />
@@ -196,14 +197,14 @@
     <option value="fr">FR</option>
   </select>
   <button class="btn-accent px-4 py-2 font-medium disabled:opacity-60" disabled={busy}>
-    {busy ? 'Adding…' : 'Add feed'}
+    {busy ? $t('dashboard.adding') : $t('dashboard.addFeed')}
   </button>
 </form>
 
 <div class="mb-6 flex flex-wrap items-center gap-3 text-sm">
-  <a class="surface px-3 py-1.5" href="/api/feeds/opml" download>Export OPML</a>
+  <a class="surface px-3 py-1.5" href="/api/feeds/opml" download>{$t('dashboard.exportOpml')}</a>
   <button class="surface px-3 py-1.5 disabled:opacity-60" disabled={importing} onclick={() => fileInput?.click()}>
-    {importing ? 'Importing…' : 'Import OPML'}
+    {importing ? $t('dashboard.importing') : $t('dashboard.importOpml')}
   </button>
   <input
     bind:this={fileInput}
@@ -220,7 +221,7 @@
 {/if}
 
 <section class="mb-6">
-  <h2 class="mb-2 text-sm font-medium text-muted">Categories</h2>
+  <h2 class="mb-2 text-sm font-medium text-muted">{$t('dashboard.categories')}</h2>
   <div class="flex flex-wrap items-center gap-2">
     {#each categories as cat (cat.id)}
       <span class="surface flex items-center gap-2 px-3 py-1.5 text-sm">
@@ -234,19 +235,18 @@
       <input
         class="surface px-2 py-1.5 text-sm"
         style="background: var(--bg-elevated); color: var(--text); width: 10rem;"
-        placeholder="New category"
+        placeholder={$t('dashboard.newCategory')}
         bind:value={newCategoryName}
       />
-      <button class="surface px-3 py-1.5 text-sm">Add</button>
+      <button class="surface px-3 py-1.5 text-sm">{$t('dashboard.add')}</button>
     </form>
   </div>
 </section>
 
 <section class="mb-6">
-  <h2 class="mb-2 text-sm font-medium text-muted">Smart feeds</h2>
+  <h2 class="mb-2 text-sm font-medium text-muted">{$t('dashboard.smartFeeds')}</h2>
   <p class="mb-2 text-xs text-muted">
-    Saved searches: matches articles whose title or description contains the query, optionally
-    limited to one feed.
+    {$t('dashboard.smartFeedsHint')}
   </p>
   <div class="mb-3 flex flex-wrap items-center gap-2">
     {#each smartFeeds as sf (sf.id)}
@@ -263,13 +263,13 @@
     <input
       class="surface px-2 py-1.5 text-sm"
       style="background: var(--bg-elevated); color: var(--text); width: 9rem;"
-      placeholder="Name"
+      placeholder={$t('dashboard.name')}
       bind:value={newSmartFeedName}
     />
     <input
       class="surface px-2 py-1.5 text-sm"
       style="background: var(--bg-elevated); color: var(--text); width: 12rem;"
-      placeholder="Search text"
+      placeholder={$t('dashboard.searchText')}
       bind:value={newSmartFeedQuery}
     />
     <select
@@ -277,12 +277,12 @@
       style="background: var(--bg-elevated); color: var(--text);"
       bind:value={newSmartFeedFeedId}
     >
-      <option value="">Any feed</option>
+      <option value="">{$t('dashboard.anyFeed')}</option>
       {#each feeds as feed (feed.id)}
         <option value={feed.id}>{feed.title ?? feed.url}</option>
       {/each}
     </select>
-    <button class="surface px-3 py-1.5 text-sm">Add</button>
+    <button class="surface px-3 py-1.5 text-sm">{$t('dashboard.add')}</button>
   </form>
 </section>
 
@@ -293,7 +293,7 @@
     {/each}
   </div>
 {:else if feeds.length === 0}
-  <p class="text-muted">No feeds yet. Add your first one above.</p>
+  <p class="text-muted">{$t('dashboard.noFeeds')}</p>
 {:else}
   <ul class="space-y-2">
     {#each feeds as feed (feed.id)}
@@ -309,13 +309,13 @@
             value={feed.category_id ?? ''}
             onchange={(e) => assignCategory(feed, (e.target as HTMLSelectElement).value)}
           >
-            <option value="">No category</option>
+            <option value="">{$t('dashboard.noCategory')}</option>
             {#each categories as cat (cat.id)}
               <option value={cat.id}>{cat.name}</option>
             {/each}
           </select>
           <button class="surface px-3 py-1.5 text-sm" style="color: #ef4444;" onclick={() => remove(feed.id)}
-            >Remove</button
+            >{$t('dashboard.remove')}</button
           >
         </div>
       </li>

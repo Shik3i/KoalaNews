@@ -12,6 +12,7 @@
     type SmartFeed,
   } from '$lib/api';
   import { user } from '$lib/auth';
+  import { t } from '$lib/i18n';
   import ArticleCard from '$lib/components/ArticleCard.svelte';
 
   const LANGS = [
@@ -102,11 +103,11 @@
 {#if $user}
   <div class="mb-4 flex items-center justify-between">
     <h1 class="text-xl font-semibold">
-      Your feed
-      {#if unreadCount > 0}<span class="text-sm font-normal text-muted">· {unreadCount} unread</span>{/if}
+      {$t('home.yourFeed')}
+      {#if unreadCount > 0}<span class="text-sm font-normal text-muted">· {unreadCount} {$t('home.unread')}</span>{/if}
     </h1>
     {#if unreadCount > 0}
-      <button class="surface px-3 py-1.5 text-sm" onclick={markAll}>Mark all read</button>
+      <button class="surface px-3 py-1.5 text-sm" onclick={markAll}>{$t('home.markAllRead')}</button>
     {/if}
   </div>
   {#if categories.length > 0 || smartFeeds.length > 0}
@@ -114,7 +115,7 @@
       <button
         class="surface px-3 py-1.5 text-sm"
         style={activeCategory === '' && activeSmartFeed === '' ? 'outline: 2px solid var(--accent);' : ''}
-        onclick={() => selectCategory('')}>All</button
+        onclick={() => selectCategory('')}>{$t('home.all')}</button
       >
       {#each categories as cat (cat.id)}
         <button
@@ -155,10 +156,10 @@
 {:else if articles.length === 0}
   {#if $user}
     <p class="text-muted">
-      No articles yet. <a class="link-accent" href="/dashboard">Add some feeds</a> to get started.
+      {$t('home.noArticlesUser')} <a class="link-accent" href="/dashboard">{$t('home.addFeeds')}</a> {$t('home.toGetStarted')}
     </p>
   {:else}
-    <p class="text-muted">No articles yet — the feed worker may still be fetching.</p>
+    <p class="text-muted">{$t('home.noArticlesGuest')}</p>
   {/if}
 {:else}
   <div class="flex flex-col" style="gap: var(--density-gap);">

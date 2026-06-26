@@ -9,6 +9,7 @@
     type AdminUser,
     type AdminStats,
   } from '$lib/api';
+  import { t } from '$lib/i18n';
 
   let stats = $state<AdminStats | null>(null);
   let users = $state<AdminUser[]>([]);
@@ -52,17 +53,17 @@
   const statCards = $derived(
     stats
       ? [
-          ['Users', stats.users],
-          ['Subscriptions', stats.feeds],
-          ['Source feeds', stats.sourceFeeds],
-          ['Articles', stats.articles],
-          ['Database', fmtBytes(stats.dbBytes)],
+          [$t('admin.users'), stats.users],
+          [$t('admin.subscriptions'), stats.feeds],
+          [$t('admin.sourceFeeds'), stats.sourceFeeds],
+          [$t('statistics.articles'), stats.articles],
+          [$t('admin.database'), fmtBytes(stats.dbBytes)],
         ]
       : [],
   );
 </script>
 
-<h1 class="mb-5 text-2xl font-semibold">Admin</h1>
+<h1 class="mb-5 text-2xl font-semibold">{$t('admin.title')}</h1>
 
 {#if error}
   <p class="mb-4 text-sm" style="color: #ef4444;">{error}</p>
