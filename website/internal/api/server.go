@@ -143,6 +143,29 @@ func (s *Server) handleListArticles(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if feedID := r.URL.Query().Get("feed"); feedID != "" {
+			rows, err := s.store.ListArticlesForUserByFeed(r.Context(), sqlcgen.ListArticlesForUserByFeedParams{
+				UserID:   u.ID,
+				UserID_2: u.ID,
+				ID:       feedID,
+				Limit:    int64(limit),
+				Offset:   int64(offset),
+			})
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
+				return
+			}
+			for _, a := range rows {
+				views = append(views, articleView{
+					ID: a.ID, Title: a.Title, Link: a.Link, Description: a.Description,
+					Content: a.Content, ImageURL: a.ImageUrl, PubDate: a.PubDate, Guid: a.Guid,
+					SourceFeedID: a.SourceFeedID, CreatedAt: a.CreatedAt, Read: a.Read != 0,
+				})
+			}
+			writeJSON(w, http.StatusOK, views)
+			return
+		}
+
 		categoryID := r.URL.Query().Get("category")
 		if categoryID != "" {
 			rows, err := s.store.ListArticlesForUserByCategory(r.Context(), sqlcgen.ListArticlesForUserByCategoryParams{

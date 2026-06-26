@@ -102,6 +102,18 @@ WHERE f.user_id = ? AND f.category_id = ?
 ORDER BY a.pub_date DESC NULLS LAST, a.created_at DESC
 LIMIT ? OFFSET ?;
 
+-- name: ListArticlesForUserByFeed :many
+SELECT DISTINCT a.id, a.title, a.link, a.description, a.content, a.image_url,
+  a.pub_date, a.guid, a.source_feed_id, a.created_at,
+  CASE WHEN EXISTS(
+    SELECT 1 FROM article_reads ar WHERE ar.user_id = ? AND ar.article_id = a.id
+  ) THEN 1 ELSE 0 END AS read
+FROM articles a
+JOIN feeds f ON f.source_feed_id = a.source_feed_id
+WHERE f.user_id = ? AND f.id = ?
+ORDER BY a.pub_date DESC NULLS LAST, a.created_at DESC
+LIMIT ? OFFSET ?;
+
 -- name: GetFeedByID :one
 SELECT * FROM feeds WHERE id = ? LIMIT 1;
 

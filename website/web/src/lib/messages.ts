@@ -2,9 +2,9 @@ export const LOCALES = ['en', 'de', 'fr'] as const;
 export type Locale = (typeof LOCALES)[number];
 
 export const LOCALE_LABELS: Record<Locale, string> = {
-  en: 'English',
-  de: 'Deutsch',
-  fr: 'Français',
+  en: '🇬🇧 English',
+  de: '🇩🇪 Deutsch',
+  fr: '🇫🇷 Français',
 };
 
 type Messages = Record<string, string>;
@@ -28,6 +28,7 @@ export const messages: Record<Locale, Messages> = {
     'home.addFeeds': 'Add some feeds',
     'home.toGetStarted': 'to get started.',
     'home.noArticlesGuest': 'No articles yet — the feed worker may still be fetching.',
+    'home.feedLanguage': 'Feed language',
 
     'auth.loginTitle': 'Sign in',
     'auth.registerTitle': 'Create account',
@@ -98,6 +99,7 @@ export const messages: Record<Locale, Messages> = {
     'home.addFeeds': 'Füge ein paar Feeds hinzu',
     'home.toGetStarted': 'um zu starten.',
     'home.noArticlesGuest': 'Noch keine Artikel — der Feed-Worker holt sie vielleicht noch.',
+    'home.feedLanguage': 'Feed-Sprache',
 
     'auth.loginTitle': 'Anmelden',
     'auth.registerTitle': 'Konto erstellen',
@@ -169,6 +171,7 @@ export const messages: Record<Locale, Messages> = {
     'home.toGetStarted': 'pour commencer.',
     'home.noArticlesGuest':
       "Pas encore d'articles — le worker de flux est peut-être encore en train de récupérer.",
+    'home.feedLanguage': 'Langue du flux',
 
     'auth.loginTitle': 'Connexion',
     'auth.registerTitle': 'Créer un compte',

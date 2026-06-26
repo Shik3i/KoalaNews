@@ -7,26 +7,30 @@
     markAllRead,
     listCategories,
     listSmartFeeds,
+    listFeeds,
     type Article,
     type Category,
     type SmartFeed,
+    type Feed,
   } from '$lib/api';
   import { user } from '$lib/auth';
   import { t } from '$lib/i18n';
   import ArticleCard from '$lib/components/ArticleCard.svelte';
 
   const LANGS = [
-    ['en', 'English'],
-    ['de', 'Deutsch'],
-    ['fr', 'Français'],
+    ['en', '🇬🇧 English'],
+    ['de', '🇩🇪 Deutsch'],
+    ['fr', '🇫🇷 Français'],
   ] as const;
 
   let lang = $state('en');
   let articles = $state<Article[]>([]);
   let categories = $state<Category[]>([]);
   let smartFeeds = $state<SmartFeed[]>([]);
+  let feeds = $state<Feed[]>([]);
   let activeCategory = $state('');
   let activeSmartFeed = $state('');
+  let activeFeed = $state('');
   let loading = $state(true);
   let error = $state<string | null>(null);
 
@@ -38,8 +42,9 @@
       articles = $user
         ? await listArticles({
             limit: 40,
-            category: activeSmartFeed ? undefined : activeCategory || undefined,
-            smartFeed: activeSmartFeed || undefined,
+            category: activeSmartFeed || activeFeed ? undefined : activeCategory || undefined,
+            smartFeed: activeFeed ? undefined : activeSmartFeed || undefined,
+            feedId: activeFeed || undefined,
           })
         : await listArticles({ lang, limit: 40 });
     } catch (e) {
@@ -51,20 +56,32 @@
 
   onMount(async () => {
     try {
-      [categories, smartFeeds] = await Promise.all([listCategories(), listSmartFeeds()]);
+      [categories, smartFeeds, feeds] = await Promise.all([
+        listCategories(),
+        listSmartFeeds(),
+        listFeeds(),
+      ]);
     } catch {
-      // categories/smart feeds are optional UI; ignore failures
+      // categories/smart feeds/feeds are optional UI; ignore failures
     }
   });
 
   function selectCategory(id: string) {
     activeCategory = id;
     activeSmartFeed = '';
+    activeFeed = '';
   }
 
   function selectSmartFeed(id: string) {
     activeSmartFeed = id;
     activeCategory = '';
+    activeFeed = '';
+  }
+
+  function selectFeed(id: string) {
+    activeFeed = id;
+    activeCategory = '';
+    activeSmartFeed = '';
   }
 
   $effect(() => {
@@ -73,6 +90,7 @@
     void lang;
     void activeCategory;
     void activeSmartFeed;
+    void activeFeed;
     load();
   });
 
@@ -110,11 +128,13 @@
       <button class="surface px-3 py-1.5 text-sm" onclick={markAll}>{$t('home.markAllRead')}</button>
     {/if}
   </div>
-  {#if categories.length > 0 || smartFeeds.length > 0}
+  {#if categories.length > 0 || smartFeeds.length > 0 || feeds.length > 0}
     <div class="mb-5 flex flex-wrap items-center gap-2">
       <button
         class="surface px-3 py-1.5 text-sm"
-        style={activeCategory === '' && activeSmartFeed === '' ? 'outline: 2px solid var(--accent);' : ''}
+        style={activeCategory === '' && activeSmartFeed === '' && activeFeed === ''
+          ? 'outline: 2px solid var(--accent);'
+          : ''}
         onclick={() => selectCategory('')}>{$t('home.all')}</button
       >
       {#each categories as cat (cat.id)}
@@ -131,17 +151,23 @@
           onclick={() => selectSmartFeed(sf.id)}>🔍 {sf.name}</button
         >
       {/each}
+      {#each feeds as feed (feed.id)}
+        <button
+          class="surface px-3 py-1.5 text-sm"
+          style={activeFeed === feed.id ? 'outline: 2px solid var(--accent);' : ''}
+          onclick={() => selectFeed(feed.id)}>{feed.title ?? feed.url}</button
+        >
+      {/each}
     </div>
   {/if}
 {:else}
-  <div class="mb-5 flex items-center gap-2">
-    {#each LANGS as [code, label]}
-      <button
-        class="surface px-3 py-1.5 text-sm"
-        style={lang === code ? 'outline: 2px solid var(--accent);' : ''}
-        onclick={() => (lang = code)}>{label}</button
-      >
-    {/each}
+  <div class="mb-5 flex items-center gap-2 text-sm">
+    <label for="feed-lang" class="text-muted">{$t('home.feedLanguage')}</label>
+    <select id="feed-lang" class="surface px-2 py-1.5" bind:value={lang}>
+      {#each LANGS as [code, label]}
+        <option value={code}>{label}</option>
+      {/each}
+    </select>
   </div>
 {/if}
 

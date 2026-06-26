@@ -750,6 +750,82 @@ func (q *Queries) ListArticlesForUserByCategory(ctx context.Context, arg ListArt
 	return items, nil
 }
 
+const listArticlesForUserByFeed = `-- name: ListArticlesForUserByFeed :many
+SELECT DISTINCT a.id, a.title, a.link, a.description, a.content, a.image_url,
+  a.pub_date, a.guid, a.source_feed_id, a.created_at,
+  CASE WHEN EXISTS(
+    SELECT 1 FROM article_reads ar WHERE ar.user_id = ? AND ar.article_id = a.id
+  ) THEN 1 ELSE 0 END AS read
+FROM articles a
+JOIN feeds f ON f.source_feed_id = a.source_feed_id
+WHERE f.user_id = ? AND f.id = ?
+ORDER BY a.pub_date DESC NULLS LAST, a.created_at DESC
+LIMIT ? OFFSET ?
+`
+
+type ListArticlesForUserByFeedParams struct {
+	UserID   string `json:"user_id"`
+	UserID_2 string `json:"user_id_2"`
+	ID       string `json:"id"`
+	Limit    int64  `json:"limit"`
+	Offset   int64  `json:"offset"`
+}
+
+type ListArticlesForUserByFeedRow struct {
+	ID           string  `json:"id"`
+	Title        *string `json:"title"`
+	Link         *string `json:"link"`
+	Description  *string `json:"description"`
+	Content      *string `json:"content"`
+	ImageUrl     *string `json:"image_url"`
+	PubDate      *string `json:"pub_date"`
+	Guid         *string `json:"guid"`
+	SourceFeedID *string `json:"source_feed_id"`
+	CreatedAt    string  `json:"created_at"`
+	Read         int64   `json:"read"`
+}
+
+func (q *Queries) ListArticlesForUserByFeed(ctx context.Context, arg ListArticlesForUserByFeedParams) ([]ListArticlesForUserByFeedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listArticlesForUserByFeed,
+		arg.UserID,
+		arg.UserID_2,
+		arg.ID,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListArticlesForUserByFeedRow
+	for rows.Next() {
+		var i ListArticlesForUserByFeedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Link,
+			&i.Description,
+			&i.Content,
+			&i.ImageUrl,
+			&i.PubDate,
+			&i.Guid,
+			&i.SourceFeedID,
+			&i.CreatedAt,
+			&i.Read,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listArticlesForUserBySmartFeed = `-- name: ListArticlesForUserBySmartFeed :many
 SELECT DISTINCT a.id, a.title, a.link, a.description, a.content, a.image_url,
   a.pub_date, a.guid, a.source_feed_id, a.created_at,

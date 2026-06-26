@@ -5,18 +5,37 @@
     CARD_STYLES,
     DENSITIES,
     FONT_SCALES,
+    BACKGROUNDS,
+    FONT_FAMILIES,
   } from '$lib/appearance';
+  import ArticleCard from './ArticleCard.svelte';
+  import type { Article } from '$lib/api';
 
   let { open = false, onclose }: { open: boolean; onclose: () => void } = $props();
 
   const a = appearance;
   const accentPresets = ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#64748b'];
+
+  const previewArticle: Article = {
+    id: 'preview',
+    title: 'Your headline will look like this',
+    link: '#',
+    description:
+      'A short preview of how article descriptions are rendered with your current card style, density, and font choices.',
+    content: null,
+    image_url: null,
+    pub_date: new Date().toISOString(),
+    guid: 'preview',
+    source_feed_id: null,
+    created_at: new Date().toISOString(),
+    read: false,
+  };
 </script>
 
 {#if open}
   <button class="fixed inset-0 z-20 bg-black/30" aria-label="Close" onclick={onclose}></button>
   <aside
-    class="fixed right-0 top-0 z-30 h-full w-80 max-w-[90vw] overflow-y-auto border-l p-5"
+    class="fixed right-0 top-0 z-30 h-full w-96 max-w-[90vw] overflow-y-auto border-l p-5"
     style="background: var(--bg); border-color: var(--border);"
   >
     <div class="mb-4 flex items-center justify-between">
@@ -25,6 +44,17 @@
     </div>
 
     <div class="space-y-5 text-sm">
+      <section>
+        <h3 class="mb-2 font-medium">Preview</h3>
+        <div
+          class="rounded-lg p-3"
+          style="background: var(--bg); border: 1px solid var(--border); overflow: hidden;"
+          data-background={$a.background}
+        >
+          <ArticleCard article={previewArticle} />
+        </div>
+      </section>
+
       <section>
         <h3 class="mb-2 font-medium">Theme</h3>
         <div class="grid grid-cols-3 gap-2">
@@ -92,6 +122,32 @@
               class="surface px-2 py-1.5 capitalize"
               style={$a.fontScale === f ? 'outline: 2px solid var(--accent);' : ''}
               onclick={() => a.patch({ fontScale: f })}>{f}</button
+            >
+          {/each}
+        </div>
+      </section>
+
+      <section>
+        <h3 class="mb-2 font-medium">Background</h3>
+        <div class="grid grid-cols-2 gap-2">
+          {#each BACKGROUNDS as b}
+            <button
+              class="surface px-2 py-1.5 capitalize"
+              style={$a.background === b ? 'outline: 2px solid var(--accent);' : ''}
+              onclick={() => a.patch({ background: b })}>{b.replace('-', ' ')}</button
+            >
+          {/each}
+        </div>
+      </section>
+
+      <section>
+        <h3 class="mb-2 font-medium">Font family</h3>
+        <div class="grid grid-cols-3 gap-2">
+          {#each FONT_FAMILIES as f}
+            <button
+              class="surface px-2 py-1.5 capitalize"
+              style={$a.fontFamily === f ? 'outline: 2px solid var(--accent);' : ''}
+              onclick={() => a.patch({ fontFamily: f })}>{f}</button
             >
           {/each}
         </div>

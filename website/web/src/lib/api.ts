@@ -48,6 +48,7 @@ export function listArticles(
     scope?: 'public';
     category?: string;
     smartFeed?: string;
+    feedId?: string;
     limit?: number;
     offset?: number;
   } = {},
@@ -57,6 +58,7 @@ export function listArticles(
   if (opts.scope) q.set('scope', opts.scope);
   if (opts.category) q.set('category', opts.category);
   if (opts.smartFeed) q.set('smartFeed', opts.smartFeed);
+  if (opts.feedId) q.set('feed', opts.feedId);
   q.set('limit', String(opts.limit ?? 30));
   q.set('offset', String(opts.offset ?? 0));
   return getJSON<Article[]>(`/api/articles?${q}`);

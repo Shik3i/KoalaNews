@@ -1,16 +1,30 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
-export const THEMES = ['system', 'light', 'dark', 'sepia', 'midnight'] as const;
+export const THEMES = [
+  'system',
+  'light',
+  'dark',
+  'sepia',
+  'midnight',
+  'forest',
+  'rose',
+  'nord',
+  'contrast',
+] as const;
 export const CARD_STYLES = ['magazine', 'compact', 'headline'] as const;
 export const DENSITIES = ['comfortable', 'compact', 'dense'] as const;
 export const FONT_SCALES = ['small', 'medium', 'large'] as const;
+export const BACKGROUNDS = ['flat', 'soft-glow', 'gradient', 'dotted'] as const;
+export const FONT_FAMILIES = ['system', 'serif', 'mono'] as const;
 
 export type Appearance = {
   theme: (typeof THEMES)[number];
   cardStyle: (typeof CARD_STYLES)[number];
   density: (typeof DENSITIES)[number];
   fontScale: (typeof FONT_SCALES)[number];
+  background: (typeof BACKGROUNDS)[number];
+  fontFamily: (typeof FONT_FAMILIES)[number];
   accent: string; // free-form CSS color chosen by the user
   showImages: boolean;
   showSource: boolean;
@@ -23,6 +37,8 @@ export const DEFAULT_APPEARANCE: Appearance = {
   cardStyle: 'magazine',
   density: 'comfortable',
   fontScale: 'medium',
+  background: 'flat',
+  fontFamily: 'system',
   accent: '#2563eb',
   showImages: true,
   showSource: true,
@@ -51,6 +67,8 @@ export function apply(a: Appearance) {
   el.dataset.cardStyle = a.cardStyle;
   el.dataset.density = a.density;
   el.dataset.fontScale = a.fontScale;
+  el.dataset.background = a.background;
+  el.dataset.fontFamily = a.fontFamily;
   el.style.setProperty('--user-accent', a.accent);
 }
 

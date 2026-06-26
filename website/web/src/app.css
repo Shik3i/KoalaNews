@@ -24,6 +24,8 @@
   --density-gap: 1rem;
   --card-pad: 1rem;
   --maxw: 56rem;
+  --font-family:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 /* User-chosen accent overrides the theme accent when set. */
@@ -64,6 +66,50 @@
   --accent-contrast: #ffffff;
 }
 
+[data-theme='forest'] {
+  --bg: #0e1810;
+  --bg-elevated: #16261a;
+  --bg-sunken: #0a1209;
+  --border: #233a28;
+  --text: #e3efe4;
+  --text-muted: #93ab97;
+  --accent: var(--user-accent, #34d399);
+  --accent-contrast: #06140a;
+}
+
+[data-theme='rose'] {
+  --bg: #fdf2f4;
+  --bg-elevated: #fbe7ea;
+  --bg-sunken: #f6d9de;
+  --border: #f0c4cb;
+  --text: #3c1f24;
+  --text-muted: #8a5d65;
+  --accent: var(--user-accent, #e1457a);
+  --accent-contrast: #fff5f7;
+}
+
+[data-theme='nord'] {
+  --bg: #2e3440;
+  --bg-elevated: #3b4252;
+  --bg-sunken: #242933;
+  --border: #4c566a;
+  --text: #eceff4;
+  --text-muted: #b3bdcf;
+  --accent: var(--user-accent, #88c0d0);
+  --accent-contrast: #2e3440;
+}
+
+[data-theme='contrast'] {
+  --bg: #000000;
+  --bg-elevated: #0a0a0a;
+  --bg-sunken: #000000;
+  --border: #2a2a2a;
+  --text: #ffffff;
+  --text-muted: #a0a0a0;
+  --accent: var(--user-accent, #ffd60a);
+  --accent-contrast: #000000;
+}
+
 /* System theme follows OS preference when data-theme is unset or 'system'. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]),
@@ -96,6 +142,29 @@
   --card-pad: 0.5rem;
 }
 
+/* Font family */
+[data-font-family='serif'] {
+  --font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+}
+[data-font-family='mono'] {
+  --font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Background style — pure CSS, theme-aware via existing tokens, no assets. */
+[data-background='soft-glow'] {
+  background-image: radial-gradient(circle at 15% -10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 55%);
+  background-attachment: fixed;
+}
+[data-background='gradient'] {
+  background-image: linear-gradient(165deg, var(--bg) 0%, var(--bg-sunken) 100%);
+  background-attachment: fixed;
+}
+[data-background='dotted'] {
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 18px 18px;
+  background-attachment: fixed;
+}
+
 html {
   background: var(--bg);
   color: var(--text);
@@ -104,8 +173,7 @@ html {
 }
 
 body {
-  font-family:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-family);
 }
 
 /* Reusable semantic utility classes driven by the tokens above. */
@@ -113,11 +181,25 @@ body {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+a.surface:hover,
+button.surface:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  box-shadow: 0 4px 16px -8px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+article.surface:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px -10px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .btn-accent {
   background: var(--accent);
   color: var(--accent-contrast);
   border-radius: var(--radius);
+  transition: filter 0.15s ease;
+}
+.btn-accent:hover {
+  filter: brightness(1.08);
 }
 .text-muted {
   color: var(--text-muted);
