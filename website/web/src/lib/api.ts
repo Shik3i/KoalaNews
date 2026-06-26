@@ -54,6 +54,19 @@ export function markAllRead(): Promise<{ status: string }> {
   return send('POST', '/api/articles/read-all');
 }
 
+export type OPMLImportResult = { added: number; skipped: number; failed: number; total: number };
+
+export async function importOPML(content: string): Promise<OPMLImportResult> {
+  const res = await fetch('/api/feeds/opml/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/x-opml' },
+    body: content,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data as { error?: string }).error ?? `Import failed (${res.status})`);
+  return data as OPMLImportResult;
+}
+
 async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
     method,

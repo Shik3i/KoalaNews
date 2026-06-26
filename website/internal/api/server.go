@@ -44,6 +44,8 @@ func (s *Server) Router() http.Handler {
 		r.Get("/feeds", s.requireAuth(s.handleListFeeds))
 		r.Post("/feeds", s.requireAuth(s.handleCreateFeed))
 		r.Delete("/feeds/{id}", s.requireAuth(s.handleDeleteFeed))
+		r.Get("/feeds/opml", s.requireAuth(s.handleOPMLExport))
+		r.Post("/feeds/opml/import", s.requireAuth(s.handleOPMLImport))
 
 		r.Get("/preferences", s.requireAuth(s.handleGetPreferences))
 		r.Put("/preferences", s.requireAuth(s.handlePutPreferences))

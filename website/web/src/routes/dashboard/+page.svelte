@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { user, authReady } from '$lib/auth';
-  import { listFeeds, addFeed, deleteFeed, type Feed } from '$lib/api';
+  import { listFeeds, addFeed, deleteFeed, importOPML, type Feed } from '$lib/api';
 
   let feeds = $state<Feed[]>([]);
   let loading = $state(true);
@@ -10,6 +10,29 @@
   let language = $state('en');
   let busy = $state(false);
   let error = $state<string | null>(null);
+  let importing = $state(false);
+  let importMsg = $state<string | null>(null);
+  let fileInput = $state<HTMLInputElement | null>(null);
+
+  async function onImportFile(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    importing = true;
+    importMsg = null;
+    error = null;
+    try {
+      const text = await file.text();
+      const r = await importOPML(text);
+      importMsg = `Imported ${r.added} feed(s), ${r.skipped} already present, ${r.failed} failed.`;
+      await refresh();
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Import failed';
+    } finally {
+      importing = false;
+      if (fileInput) fileInput.value = '';
+    }
+  }
 
   async function refresh() {
     loading = true;
@@ -83,6 +106,21 @@
     {busy ? 'Adding…' : 'Add feed'}
   </button>
 </form>
+
+<div class="mb-6 flex flex-wrap items-center gap-3 text-sm">
+  <a class="surface px-3 py-1.5" href="/api/feeds/opml" download>Export OPML</a>
+  <button class="surface px-3 py-1.5 disabled:opacity-60" disabled={importing} onclick={() => fileInput?.click()}>
+    {importing ? 'Importing…' : 'Import OPML'}
+  </button>
+  <input
+    bind:this={fileInput}
+    type="file"
+    accept=".opml,.xml,text/xml,application/xml"
+    class="hidden"
+    onchange={onImportFile}
+  />
+  {#if importMsg}<span class="text-muted">{importMsg}</span>{/if}
+</div>
 
 {#if error}
   <p class="mb-4 text-sm" style="color: #ef4444;">{error}</p>
