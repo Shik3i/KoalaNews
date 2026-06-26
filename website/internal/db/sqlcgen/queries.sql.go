@@ -9,12 +9,45 @@ import (
 	"context"
 )
 
+const countArticles = `-- name: CountArticles :one
+SELECT count(*) FROM articles
+`
+
+func (q *Queries) CountArticles(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countArticles)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countArticlesForSource = `-- name: CountArticlesForSource :one
 SELECT count(*) FROM articles WHERE source_feed_id = ?
 `
 
 func (q *Queries) CountArticlesForSource(ctx context.Context, sourceFeedID *string) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countArticlesForSource, sourceFeedID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countFeeds = `-- name: CountFeeds :one
+SELECT count(*) FROM feeds
+`
+
+func (q *Queries) CountFeeds(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countFeeds)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countSourceFeeds = `-- name: CountSourceFeeds :one
+SELECT count(*) FROM source_feeds
+`
+
+func (q *Queries) CountSourceFeeds(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countSourceFeeds)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -162,6 +195,15 @@ DELETE FROM sessions WHERE id = ?
 
 func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 	_, err := q.db.ExecContext(ctx, deleteSession, id)
+	return err
+}
+
+const deleteSessionsForUser = `-- name: DeleteSessionsForUser :exec
+DELETE FROM sessions WHERE user_id = ?
+`
+
+func (q *Queries) DeleteSessionsForUser(ctx context.Context, userID string) error {
+	_, err := q.db.ExecContext(ctx, deleteSessionsForUser, userID)
 	return err
 }
 
@@ -584,6 +626,52 @@ func (q *Queries) ListSourceFeedsToSync(ctx context.Context, datetime interface{
 	return items, nil
 }
 
+const listUsers = `-- name: ListUsers :many
+SELECT id, name, email, role, banned, banned_reason, created_at
+FROM users ORDER BY created_at DESC
+`
+
+type ListUsersRow struct {
+	ID           string  `json:"id"`
+	Name         *string `json:"name"`
+	Email        string  `json:"email"`
+	Role         string  `json:"role"`
+	Banned       int64   `json:"banned"`
+	BannedReason *string `json:"banned_reason"`
+	CreatedAt    string  `json:"created_at"`
+}
+
+func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUsersRow
+	for rows.Next() {
+		var i ListUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Email,
+			&i.Role,
+			&i.Banned,
+			&i.BannedReason,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setRateLimit = `-- name: SetRateLimit :exec
 INSERT INTO rate_limit_entries (key, count, reset_at)
 VALUES (?, ?, ?)
@@ -598,6 +686,27 @@ type SetRateLimitParams struct {
 
 func (q *Queries) SetRateLimit(ctx context.Context, arg SetRateLimitParams) error {
 	_, err := q.db.ExecContext(ctx, setRateLimit, arg.Key, arg.Count, arg.ResetAt)
+	return err
+}
+
+const setUserRoleBanned = `-- name: SetUserRoleBanned :exec
+UPDATE users SET role = ?, banned = ?, banned_reason = ? WHERE id = ?
+`
+
+type SetUserRoleBannedParams struct {
+	Role         string  `json:"role"`
+	Banned       int64   `json:"banned"`
+	BannedReason *string `json:"banned_reason"`
+	ID           string  `json:"id"`
+}
+
+func (q *Queries) SetUserRoleBanned(ctx context.Context, arg SetUserRoleBannedParams) error {
+	_, err := q.db.ExecContext(ctx, setUserRoleBanned,
+		arg.Role,
+		arg.Banned,
+		arg.BannedReason,
+		arg.ID,
+	)
 	return err
 }
 

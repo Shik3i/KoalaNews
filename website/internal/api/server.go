@@ -47,6 +47,10 @@ func (s *Server) Router() http.Handler {
 
 		r.Get("/preferences", s.requireAuth(s.handleGetPreferences))
 		r.Put("/preferences", s.requireAuth(s.handlePutPreferences))
+
+		r.Get("/admin/users", s.requireAdmin(s.handleAdminListUsers))
+		r.Patch("/admin/users/{id}", s.requireAdmin(s.handleAdminUpdateUser))
+		r.Get("/admin/stats", s.requireAdmin(s.handleAdminStats))
 	})
 
 	// Static frontend (SvelteKit adapter-static) with SPA fallback.

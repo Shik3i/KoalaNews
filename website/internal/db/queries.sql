@@ -99,6 +99,25 @@ DELETE FROM sessions WHERE id = ?;
 -- name: DeleteExpiredSessions :exec
 DELETE FROM sessions WHERE expires_at <= datetime('now');
 
+-- name: DeleteSessionsForUser :exec
+DELETE FROM sessions WHERE user_id = ?;
+
+-- name: ListUsers :many
+SELECT id, name, email, role, banned, banned_reason, created_at
+FROM users ORDER BY created_at DESC;
+
+-- name: SetUserRoleBanned :exec
+UPDATE users SET role = ?, banned = ?, banned_reason = ? WHERE id = ?;
+
+-- name: CountFeeds :one
+SELECT count(*) FROM feeds;
+
+-- name: CountArticles :one
+SELECT count(*) FROM articles;
+
+-- name: CountSourceFeeds :one
+SELECT count(*) FROM source_feeds;
+
 -- name: GetRateLimit :one
 SELECT count, reset_at FROM rate_limit_entries WHERE key = ? LIMIT 1;
 

@@ -23,8 +23,9 @@ Status: **In Arbeit** — Fundament + RSS-Pipeline lauffähig (vertikaler Schnit
 
 - [x] **Appearance-Prefs in DB** — `GET/PUT /api/preferences` (requireAuth), Enum-Sanitization. Frontend-Store synct bei eingeloggten Usern automatisch zum Server (fire-and-forget PUT) und lädt Server-Prefs bei Login/`fetchMe`. **Verifiziert:** Prefs gesetzt → localStorage gelöscht → Reload → UI kommt nachweislich vom Server (Sepia+Grün). localStorage bleibt Offline-Quelle für Gäste.
 
+- [x] **Admin-Panel** — `GET /api/admin/users`, `PATCH /api/admin/users/{id}` (Rolle/Ban mit Self-Lockout-Schutz + Session-Revoke beim Bannen), `GET /api/admin/stats` (User/Feed/Source/Article-Counts + DB-Größe via SQLite-Pragmas). Frontend: Stats-Cards + User-Tabelle mit Promote/Demote/Ban/Unban. **End-to-end verifiziert** (UI-Ban → Status „banned" + Session weg; Self-Ban/Demote 403; non-admin 403).
+
 ### Als Nächstes
-- [ ] **Admin-Panel** — Userverwaltung (list/ban/role), Settings, DB-Größe.
 - [ ] Weitere Parität: Statistiken, Smart-Feeds, Kategorien, OPML, Read-State, i18n, Backups.
 - [ ] **Phase 4** — restliche API-Routes: feeds CRUD, categories, smart-feeds, statistics, admin (users/settings/backups), read-state, OPML.
 - [ ] **Phase 5 (Rest)** — Seiten: login/register, dashboard (Feeds verwalten), settings, statistics, admin. i18n (de/en/fr).

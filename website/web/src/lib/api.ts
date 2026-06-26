@@ -59,3 +59,36 @@ export function addFeed(url: string, language: string): Promise<Feed> {
 export function deleteFeed(id: string): Promise<{ status: string }> {
   return send('DELETE', `/api/feeds/${id}`);
 }
+
+export type AdminUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+  banned: boolean;
+  bannedReason: string | null;
+  createdAt: string;
+};
+
+export type AdminStats = {
+  users: number;
+  feeds: number;
+  sourceFeeds: number;
+  articles: number;
+  dbBytes: number;
+};
+
+export function adminStats(): Promise<AdminStats> {
+  return getJSON<AdminStats>('/api/admin/stats');
+}
+
+export function adminListUsers(): Promise<AdminUser[]> {
+  return getJSON<AdminUser[]>('/api/admin/users');
+}
+
+export function adminUpdateUser(
+  id: string,
+  patch: { role?: string; banned?: boolean; bannedReason?: string },
+): Promise<{ status: string }> {
+  return send('PATCH', `/api/admin/users/${id}`, patch);
+}
