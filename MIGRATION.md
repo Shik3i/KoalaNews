@@ -33,8 +33,10 @@ Status: **In Arbeit** — Fundament + RSS-Pipeline lauffähig (vertikaler Schnit
 
 - [x] **Smart-Feeds (gespeicherte Suchen)** — `smart_feeds`-Tabelle (FK `CASCADE` auf `feeds`, da ein Smart-Feed ohne sein Scope-Feed sinnlos ist). CRUD (`/api/smart-feeds`), case-insensitive Substring-Match auf Titel/Beschreibung, optional auf ein Feed eingeschränkt (`?smartFeed=`). Frontend: Verwaltung im Dashboard (Name/Suchtext/Feed-Scope), 🔍-Filter-Chips auf der Home-Page (exklusiv zu Kategorie-Filtern). **Bugfix:** erste Implementierung warf 500 — sqlc übersetzt `sqlc.narg`/`sqlc.arg` in SQLite-nummerierte Platzhalter (`?5`,`?6`), aber `LIMIT ? OFFSET ?` blieb unnummeriert; SQLite zählt bare `?` ab dem höchsten bereits vergebenen Index weiter, wodurch `LIMIT`/`OFFSET` auf `?7`/`?8` sprangen, für die kein Go-Arg existierte. Fix: komplette Query auf durchgängig nummerierte `sqlc.arg(...)`-Platzhalter umgestellt. **End-to-end verifiziert** (curl + Browser: 🔍 DAX-Chip filtert korrekt auf 2 Treffer, kein 500 mehr).
 
+- [x] **Statistiken (öffentlich)** — `GET /api/statistics` (kein Auth), liefert Users/Feeds/Articles-Totals + Top-10-Feeds nach Artikelzahl (`TopSourceFeedsByArticleCount`-Query). Frontend: `/statistics`-Seite mit Stat-Cards + Top-Feeds-Liste, Nav-Link für alle sichtbar (eingeloggt oder nicht) — entspricht Legacy-Verhalten (global sichtbare Sitewide-Stats, kein Date-Range-Filter, keine Charts). **Verifiziert** (Screenshot: 0 Users/3 Feeds/113 Articles, Top-3-Feeds korrekt sortiert).
+
 ### Als Nächstes
-- [ ] Weitere Parität: Statistiken (user-facing), i18n, Backups.
+- [ ] Weitere Parität: i18n, Backups.
 - [ ] **Phase 4** — restliche API-Routes: feeds CRUD, categories, smart-feeds, statistics, admin (users/settings/backups), read-state, OPML.
 - [ ] **Phase 5 (Rest)** — Seiten: login/register, dashboard (Feeds verwalten), settings, statistics, admin. i18n (de/en/fr).
 - [ ] **Phase 6/7** — GFS-Backups (CLI + admin), Cutover via Reverse-Proxy.
