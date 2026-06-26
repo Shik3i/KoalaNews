@@ -39,11 +39,14 @@ Status: **In Arbeit** — Fundament + RSS-Pipeline lauffähig (vertikaler Schnit
 
 - [x] **Backups (GFS-Retention)** — `internal/backup`: `VACUUM INTO`-Snapshots (daily/weekly/monthly) direkt über die bestehende `*sql.DB`-Verbindung (kein `sqlite3`-CLI-Shellout nötig dank `modernc.org/sqlite`), Snapshot wird von Bulk-Tabellen (`articles`/`article_reads`/`image_cache`) befreit + re-`VACUUM`t, alte Generationen über 7/5/12 hinaus werden gelöscht. Endpoints: `GET/POST /api/admin/backups`, `GET /api/admin/backups/{name}` (Name-Validierung gegen Pfad-Traversal). Frontend: Backups-Sektion im Admin-Panel (Liste + „Create backup now" + Download-Links). **Verifiziert** (curl: Snapshot erstellt, Bulk-Tabellen bestätigt leer/User-Daten erhalten, Traversal-Versuch + unbekannter Name → 404; Browser-Screenshot der Liste).
 
+- [x] **CI-Pipeline** — `.github/workflows/ci.yml` + `docker-build.yml` waren noch auf dem alten npm/Prisma-Next.js-Stack stehengeblieben (liefen gegen ein nicht mehr existierendes `package-lock.json`/`prisma`-Setup). Umgestellt auf den neuen Stack: `ci.yml` zweistufig — `frontend` (Svelte-Check + `vite build` in `website/web`, Artifact-Upload) → `backend` (Go vet/test/build in `website`, lädt den Frontend-Build als Artifact für `go:embed`-Parität). `docker-build.yml`s `test`-Job ebenso auf `go vet`/`go test` umgestellt (Docker-Build-Job selbst unverändert, baut intern bereits Node→Go im Dockerfile). **Verifiziert:** `go vet`/`go test ./...` lokal grün, `npm run check`/`npm run build` in `web/` grün, `docker build` + Container-Smoke-Test (`/api/health` → 200, RSS-Sync läuft an) erfolgreich, beide YAMLs syntaktisch validiert.
+
 ### Als Nächstes
-Volle Feature-Parität laut Scope-Entscheidung erreicht (Auth, Dashboard, Appearance, Admin, Read-State, OPML, Kategorien, Smart-Feeds, Statistiken, i18n, Backups). Verbleibend für Produktionsreife: Phase 6/7 (Cutover-Strategie, Reverse-Proxy, CI-Pipeline) — siehe unten.
-- [ ] **Phase 4** — restliche API-Routes: feeds CRUD, categories, smart-feeds, statistics, admin (users/settings/backups), read-state, OPML.
-- [ ] **Phase 5 (Rest)** — Seiten: login/register, dashboard (Feeds verwalten), settings, statistics, admin. i18n (de/en/fr).
-- [ ] **Phase 6/7** — GFS-Backups (CLI + admin), Cutover via Reverse-Proxy.
+Volle Feature-Parität laut Scope-Entscheidung erreicht (Auth, Dashboard, Appearance, Admin, Read-State, OPML, Kategorien, Smart-Feeds, Statistiken, i18n, Backups). CI-Pipeline auf den neuen Stack umgestellt. Verbleibend für Produktionsreife: Cutover-Strategie (Reverse-Proxy-Umschaltung legacy → neu) — siehe unten.
+- [x] **Phase 4** — restliche API-Routes: feeds CRUD, categories, smart-feeds, statistics, admin (users/settings/backups), read-state, OPML.
+- [x] **Phase 5 (Rest)** — Seiten: login/register, dashboard (Feeds verwalten), settings, statistics, admin. i18n (de/en/fr).
+- [x] **Phase 6** — GFS-Backups (CLI-äquivalent via Admin-Endpoint).
+- [ ] **Phase 7 (Rest)** — Cutover via Reverse-Proxy (Parallelbetrieb legacy/neu, schrittweises Umrouten).
 
 ---
 
@@ -153,10 +156,10 @@ Referenz: `website_legacy/scripts/backup.mjs`, `src/lib/database-backups.ts`
 
 ## Phase 7 — Docker + Cutover
 
-- [ ] Multi-stage Dockerfile: `node` baut Svelte → `golang` baut Binary (CGO_ENABLED=0) → `FROM scratch`/`distroless:static` + Binary + ca-certificates. Ziel **< 30 MB**.
+- [x] Multi-stage Dockerfile: `node` baut Svelte → `golang` baut Binary (CGO_ENABLED=0) → `distroless:static-debian12:nonroot`. **25,3 MB** erreicht.
 - [ ] `docker-compose.yml`: gleiche Volume-Mounts (`/data`), gleiche `DATABASE_URL`-Semantik (file path).
 - [ ] Parallelbetrieb: legacy auf altem Port, neu auf neuem; Reverse-Proxy schrittweise umrouten. Bei grünem Smoke-Test Cutover, `website_legacy` bleibt 1–2 Releases als Fallback.
-- [ ] CI (`.github/workflows`): Go test/vet/build + Svelte build statt npm-only.
+- [x] CI (`.github/workflows`): Go test/vet/build + Svelte build statt npm-only.
 
 ---
 

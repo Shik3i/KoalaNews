@@ -14,41 +14,22 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: website
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          node-version: 26
-          cache: npm
-          cache-dependency-path: website/package-lock.json
+          go-version-file: website/go.mod
+          cache-dependency-path: website/go.sum
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Vet
+        working-directory: website
+        run: go vet ./...
 
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type check
-        run: npm run typecheck
-
-      - name: Run tests
-        run: npm run test:run -- --coverage
-
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage
-          path: website/coverage/
+      - name: Test
+        working-directory: website
+        run: go test ./...
 
   build:
     needs: test
