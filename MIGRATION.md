@@ -35,8 +35,10 @@ Status: **In Arbeit** — Fundament + RSS-Pipeline lauffähig (vertikaler Schnit
 
 - [x] **Statistiken (öffentlich)** — `GET /api/statistics` (kein Auth), liefert Users/Feeds/Articles-Totals + Top-10-Feeds nach Artikelzahl (`TopSourceFeedsByArticleCount`-Query). Frontend: `/statistics`-Seite mit Stat-Cards + Top-Feeds-Liste, Nav-Link für alle sichtbar (eingeloggt oder nicht) — entspricht Legacy-Verhalten (global sichtbare Sitewide-Stats, kein Date-Range-Filter, keine Charts). **Verifiziert** (Screenshot: 0 Users/3 Feeds/113 Articles, Top-3-Feeds korrekt sortiert).
 
+- [x] **i18n (de/en/fr)** — reine Frontend-Lösung (kein next-intl-Äquivalent nötig, da SPA + Go-API): `lib/messages.ts` (flaches Key-Dictionary, 61 Keys × 3 Sprachen) + `lib/i18n.ts` (Locale-Store, `localStorage`-persistiert, Auto-Detect via `navigator.language`). Sprachumschalter im Nav (Select statt URL-Präfix, da SPA ohne Server-Routing). Eingebaut in Nav/Home/Dashboard/Statistics/Admin/Auth. UI-Sprache bleibt **unabhängig** vom Artikel-`?lang=`/Feed-`language`-Feld (wie im Legacy: dort war es auch nur ein loser Default, kein Binding). **Verifiziert** (Screenshot: Sprachwechsel EN→DE live, Login-Seite komplett auf Deutsch).
+
 ### Als Nächstes
-- [ ] Weitere Parität: i18n, Backups.
+- [ ] Weitere Parität: Backups (GFS-Retention).
 - [ ] **Phase 4** — restliche API-Routes: feeds CRUD, categories, smart-feeds, statistics, admin (users/settings/backups), read-state, OPML.
 - [ ] **Phase 5 (Rest)** — Seiten: login/register, dashboard (Feeds verwalten), settings, statistics, admin. i18n (de/en/fr).
 - [ ] **Phase 6/7** — GFS-Backups (CLI + admin), Cutover via Reverse-Proxy.
