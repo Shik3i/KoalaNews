@@ -23,6 +23,13 @@ type ArticleRead struct {
 	ReadAt    string `json:"read_at"`
 }
 
+type Category struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	UserID    string `json:"user_id"`
+	CreatedAt string `json:"created_at"`
+}
+
 type Feed struct {
 	ID            string  `json:"id"`
 	Url           string  `json:"url"`
@@ -31,6 +38,7 @@ type Feed struct {
 	Language      string  `json:"language"`
 	UserID        string  `json:"user_id"`
 	SourceFeedID  *string `json:"source_feed_id"`
+	CategoryID    *string `json:"category_id"`
 	LastFetchedAt *string `json:"last_fetched_at"`
 	CreatedAt     string  `json:"created_at"`
 }

@@ -2,9 +2,21 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { user, authReady } from '$lib/auth';
-  import { listFeeds, addFeed, deleteFeed, importOPML, type Feed } from '$lib/api';
+  import {
+    listFeeds,
+    addFeed,
+    deleteFeed,
+    importOPML,
+    listCategories,
+    createCategory,
+    deleteCategory,
+    setFeedCategory,
+    type Feed,
+    type Category,
+  } from '$lib/api';
 
   let feeds = $state<Feed[]>([]);
+  let categories = $state<Category[]>([]);
   let loading = $state(true);
   let url = $state('');
   let language = $state('en');
@@ -13,6 +25,7 @@
   let importing = $state(false);
   let importMsg = $state<string | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
+  let newCategoryName = $state('');
 
   async function onImportFile(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -37,7 +50,7 @@
   async function refresh() {
     loading = true;
     try {
-      feeds = await listFeeds();
+      [feeds, categories] = await Promise.all([listFeeds(), listCategories()]);
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load feeds';
     } finally {
@@ -68,6 +81,43 @@
       await deleteFeed(id);
     } catch {
       feeds = prev; // rollback on failure
+    }
+  }
+
+  async function addCategory(e: SubmitEvent) {
+    e.preventDefault();
+    const name = newCategoryName.trim();
+    if (!name) return;
+    try {
+      const cat = await createCategory(name);
+      categories = [...categories, cat].sort((a, b) => a.name.localeCompare(b.name));
+      newCategoryName = '';
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Could not create category';
+    }
+  }
+
+  async function removeCategory(id: string) {
+    const prevCats = categories;
+    const prevFeeds = feeds;
+    categories = categories.filter((c) => c.id !== id);
+    feeds = feeds.map((f) => (f.category_id === id ? { ...f, category_id: null } : f));
+    try {
+      await deleteCategory(id);
+    } catch {
+      categories = prevCats;
+      feeds = prevFeeds;
+    }
+  }
+
+  async function assignCategory(feed: Feed, categoryId: string) {
+    const prev = feeds;
+    const nextId = categoryId || null;
+    feeds = feeds.map((f) => (f.id === feed.id ? { ...f, category_id: nextId } : f));
+    try {
+      await setFeedCategory(feed.id, nextId);
+    } catch {
+      feeds = prev;
     }
   }
 
@@ -126,6 +176,29 @@
   <p class="mb-4 text-sm" style="color: #ef4444;">{error}</p>
 {/if}
 
+<section class="mb-6">
+  <h2 class="mb-2 text-sm font-medium text-muted">Categories</h2>
+  <div class="flex flex-wrap items-center gap-2">
+    {#each categories as cat (cat.id)}
+      <span class="surface flex items-center gap-2 px-3 py-1.5 text-sm">
+        {cat.name}
+        <button class="text-muted hover:text-current" onclick={() => removeCategory(cat.id)} title="Delete category"
+          >✕</button
+        >
+      </span>
+    {/each}
+    <form class="flex gap-2" onsubmit={addCategory}>
+      <input
+        class="surface px-2 py-1.5 text-sm"
+        style="background: var(--bg-elevated); color: var(--text); width: 10rem;"
+        placeholder="New category"
+        bind:value={newCategoryName}
+      />
+      <button class="surface px-3 py-1.5 text-sm">Add</button>
+    </form>
+  </div>
+</section>
+
 {#if loading}
   <div class="space-y-2">
     {#each Array(3) as _}
@@ -142,11 +215,22 @@
           <p class="truncate font-medium">{feed.title ?? feed.url}</p>
           <p class="truncate text-xs text-muted">{feed.url}</p>
         </div>
-        <button
-          class="surface shrink-0 px-3 py-1.5 text-sm"
-          style="color: #ef4444;"
-          onclick={() => remove(feed.id)}>Remove</button
-        >
+        <div class="flex shrink-0 items-center gap-2">
+          <select
+            class="surface px-2 py-1.5 text-sm"
+            style="background: var(--bg-elevated); color: var(--text);"
+            value={feed.category_id ?? ''}
+            onchange={(e) => assignCategory(feed, (e.target as HTMLSelectElement).value)}
+          >
+            <option value="">No category</option>
+            {#each categories as cat (cat.id)}
+              <option value={cat.id}>{cat.name}</option>
+            {/each}
+          </select>
+          <button class="surface px-3 py-1.5 text-sm" style="color: #ef4444;" onclick={() => remove(feed.id)}
+            >Remove</button
+          >
+        </div>
       </li>
     {/each}
   </ul>

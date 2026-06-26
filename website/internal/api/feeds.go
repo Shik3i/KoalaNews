@@ -17,13 +17,14 @@ type feedView struct {
 	Title       *string `json:"title"`
 	Description *string `json:"description"`
 	Language    string  `json:"language"`
+	CategoryID  *string `json:"category_id"`
 	CreatedAt   string  `json:"created_at"`
 }
 
 func toFeedView(f sqlcgen.Feed) feedView {
 	return feedView{
 		ID: f.ID, URL: f.Url, Title: f.Title, Description: f.Description,
-		Language: f.Language, CreatedAt: f.CreatedAt,
+		Language: f.Language, CategoryID: f.CategoryID, CreatedAt: f.CreatedAt,
 	}
 }
 
@@ -64,6 +65,43 @@ func (s *Server) handleCreateFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, toFeedView(feed))
+}
+
+func (s *Server) handleSetFeedCategory(w http.ResponseWriter, r *http.Request) {
+	u := currentUser(r)
+	feedID := chi.URLParam(r, "id")
+
+	var body struct {
+		CategoryID *string `json:"category_id"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
+		return
+	}
+
+	feed, err := s.store.GetFeedByID(r.Context(), feedID)
+	if err != nil || feed.UserID != u.ID {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "feed not found"})
+		return
+	}
+
+	if body.CategoryID != nil && *body.CategoryID != "" {
+		cat, err := s.store.GetCategoryByID(r.Context(), *body.CategoryID)
+		if err != nil || cat.UserID != u.ID {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "category not found"})
+			return
+		}
+	} else {
+		body.CategoryID = nil
+	}
+
+	if err := s.store.SetFeedCategory(r.Context(), sqlcgen.SetFeedCategoryParams{
+		CategoryID: body.CategoryID, ID: feedID, UserID: u.ID,
+	}); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "update failed"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (s *Server) handleDeleteFeed(w http.ResponseWriter, r *http.Request) {

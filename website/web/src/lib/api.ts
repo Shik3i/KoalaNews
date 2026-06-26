@@ -24,15 +24,29 @@ export type Feed = {
   title: string | null;
   description: string | null;
   language: string;
+  category_id: string | null;
+  created_at: string;
+};
+
+export type Category = {
+  id: string;
+  name: string;
   created_at: string;
 };
 
 export function listArticles(
-  opts: { lang?: string; scope?: 'public'; limit?: number; offset?: number } = {},
+  opts: {
+    lang?: string;
+    scope?: 'public';
+    category?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
 ): Promise<Article[]> {
   const q = new URLSearchParams();
   if (opts.lang) q.set('lang', opts.lang);
   if (opts.scope) q.set('scope', opts.scope);
+  if (opts.category) q.set('category', opts.category);
   q.set('limit', String(opts.limit ?? 30));
   q.set('offset', String(opts.offset ?? 0));
   return getJSON<Article[]>(`/api/articles?${q}`);
@@ -52,6 +66,29 @@ export function markUnread(id: string): Promise<{ status: string }> {
 
 export function markAllRead(): Promise<{ status: string }> {
   return send('POST', '/api/articles/read-all');
+}
+
+export function listCategories(): Promise<Category[]> {
+  return getJSON<Category[]>('/api/categories');
+}
+
+export function createCategory(name: string): Promise<Category> {
+  return send<Category>('POST', '/api/categories', { name });
+}
+
+export function renameCategory(id: string, name: string): Promise<{ status: string }> {
+  return send('PATCH', `/api/categories/${id}`, { name });
+}
+
+export function deleteCategory(id: string): Promise<{ status: string }> {
+  return send('DELETE', `/api/categories/${id}`);
+}
+
+export function setFeedCategory(
+  feedId: string,
+  categoryId: string | null,
+): Promise<{ status: string }> {
+  return send('PATCH', `/api/feeds/${feedId}/category`, { category_id: categoryId });
 }
 
 export type OPMLImportResult = { added: number; skipped: number; failed: number; total: number };

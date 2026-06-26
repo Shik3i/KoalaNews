@@ -64,10 +64,33 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const createCategory = `-- name: CreateCategory :one
+INSERT INTO categories (id, name, user_id) VALUES (?, ?, ?)
+RETURNING id, name, user_id, created_at
+`
+
+type CreateCategoryParams struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	UserID string `json:"user_id"`
+}
+
+func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error) {
+	row := q.db.QueryRowContext(ctx, createCategory, arg.ID, arg.Name, arg.UserID)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.UserID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createFeed = `-- name: CreateFeed :one
 INSERT INTO feeds (id, url, title, description, language, user_id, source_feed_id, last_fetched_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-RETURNING id, url, title, description, language, user_id, source_feed_id, last_fetched_at, created_at
+RETURNING id, url, title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at
 `
 
 type CreateFeedParams struct {
@@ -99,6 +122,7 @@ func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, e
 		&i.Language,
 		&i.UserID,
 		&i.SourceFeedID,
+		&i.CategoryID,
 		&i.LastFetchedAt,
 		&i.CreatedAt,
 	)
@@ -166,6 +190,20 @@ func (q *Queries) CreateUserPreference(ctx context.Context, userID string) error
 	return err
 }
 
+const deleteCategoryForUser = `-- name: DeleteCategoryForUser :exec
+DELETE FROM categories WHERE id = ? AND user_id = ?
+`
+
+type DeleteCategoryForUserParams struct {
+	ID     string `json:"id"`
+	UserID string `json:"user_id"`
+}
+
+func (q *Queries) DeleteCategoryForUser(ctx context.Context, arg DeleteCategoryForUserParams) error {
+	_, err := q.db.ExecContext(ctx, deleteCategoryForUser, arg.ID, arg.UserID)
+	return err
+}
+
 const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
 DELETE FROM sessions WHERE expires_at <= datetime('now')
 `
@@ -223,8 +261,24 @@ func (q *Queries) GetCachedImage(ctx context.Context, sourceUrl string) (GetCach
 	return i, err
 }
 
+const getCategoryByID = `-- name: GetCategoryByID :one
+SELECT id, name, user_id, created_at FROM categories WHERE id = ? LIMIT 1
+`
+
+func (q *Queries) GetCategoryByID(ctx context.Context, id string) (Category, error) {
+	row := q.db.QueryRowContext(ctx, getCategoryByID, id)
+	var i Category
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.UserID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getFeedByID = `-- name: GetFeedByID :one
-SELECT id, url, title, description, language, user_id, source_feed_id, last_fetched_at, created_at FROM feeds WHERE id = ? LIMIT 1
+SELECT id, url, title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at FROM feeds WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetFeedByID(ctx context.Context, id string) (Feed, error) {
@@ -238,6 +292,7 @@ func (q *Queries) GetFeedByID(ctx context.Context, id string) (Feed, error) {
 		&i.Language,
 		&i.UserID,
 		&i.SourceFeedID,
+		&i.CategoryID,
 		&i.LastFetchedAt,
 		&i.CreatedAt,
 	)
@@ -347,7 +402,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 }
 
 const getUserFeedByURL = `-- name: GetUserFeedByURL :one
-SELECT id, url, title, description, language, user_id, source_feed_id, last_fetched_at, created_at FROM feeds WHERE user_id = ? AND url = ? LIMIT 1
+SELECT id, url, title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at FROM feeds WHERE user_id = ? AND url = ? LIMIT 1
 `
 
 type GetUserFeedByURLParams struct {
@@ -366,6 +421,7 @@ func (q *Queries) GetUserFeedByURL(ctx context.Context, arg GetUserFeedByURLPara
 		&i.Language,
 		&i.UserID,
 		&i.SourceFeedID,
+		&i.CategoryID,
 		&i.LastFetchedAt,
 		&i.CreatedAt,
 	)
@@ -552,6 +608,114 @@ func (q *Queries) ListArticlesForUser(ctx context.Context, arg ListArticlesForUs
 	return items, nil
 }
 
+const listArticlesForUserByCategory = `-- name: ListArticlesForUserByCategory :many
+SELECT DISTINCT a.id, a.title, a.link, a.description, a.content, a.image_url,
+  a.pub_date, a.guid, a.source_feed_id, a.created_at,
+  CASE WHEN EXISTS(
+    SELECT 1 FROM article_reads ar WHERE ar.user_id = ? AND ar.article_id = a.id
+  ) THEN 1 ELSE 0 END AS read
+FROM articles a
+JOIN feeds f ON f.source_feed_id = a.source_feed_id
+WHERE f.user_id = ? AND f.category_id = ?
+ORDER BY a.pub_date DESC NULLS LAST, a.created_at DESC
+LIMIT ? OFFSET ?
+`
+
+type ListArticlesForUserByCategoryParams struct {
+	UserID     string  `json:"user_id"`
+	UserID_2   string  `json:"user_id_2"`
+	CategoryID *string `json:"category_id"`
+	Limit      int64   `json:"limit"`
+	Offset     int64   `json:"offset"`
+}
+
+type ListArticlesForUserByCategoryRow struct {
+	ID           string  `json:"id"`
+	Title        *string `json:"title"`
+	Link         *string `json:"link"`
+	Description  *string `json:"description"`
+	Content      *string `json:"content"`
+	ImageUrl     *string `json:"image_url"`
+	PubDate      *string `json:"pub_date"`
+	Guid         *string `json:"guid"`
+	SourceFeedID *string `json:"source_feed_id"`
+	CreatedAt    string  `json:"created_at"`
+	Read         int64   `json:"read"`
+}
+
+func (q *Queries) ListArticlesForUserByCategory(ctx context.Context, arg ListArticlesForUserByCategoryParams) ([]ListArticlesForUserByCategoryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listArticlesForUserByCategory,
+		arg.UserID,
+		arg.UserID_2,
+		arg.CategoryID,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListArticlesForUserByCategoryRow
+	for rows.Next() {
+		var i ListArticlesForUserByCategoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Link,
+			&i.Description,
+			&i.Content,
+			&i.ImageUrl,
+			&i.PubDate,
+			&i.Guid,
+			&i.SourceFeedID,
+			&i.CreatedAt,
+			&i.Read,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCategoriesByUser = `-- name: ListCategoriesByUser :many
+SELECT id, name, user_id, created_at FROM categories WHERE user_id = ? ORDER BY name ASC
+`
+
+func (q *Queries) ListCategoriesByUser(ctx context.Context, userID string) ([]Category, error) {
+	rows, err := q.db.QueryContext(ctx, listCategoriesByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Category
+	for rows.Next() {
+		var i Category
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.UserID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listExistingGuids = `-- name: ListExistingGuids :many
 SELECT guid FROM articles WHERE source_feed_id = ? AND guid IS NOT NULL
 `
@@ -580,7 +744,7 @@ func (q *Queries) ListExistingGuids(ctx context.Context, sourceFeedID *string) (
 }
 
 const listFeedsByUser = `-- name: ListFeedsByUser :many
-SELECT id, url, title, description, language, user_id, source_feed_id, last_fetched_at, created_at FROM feeds WHERE user_id = ? ORDER BY created_at DESC
+SELECT id, url, title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at FROM feeds WHERE user_id = ? ORDER BY created_at DESC
 `
 
 func (q *Queries) ListFeedsByUser(ctx context.Context, userID string) ([]Feed, error) {
@@ -600,6 +764,7 @@ func (q *Queries) ListFeedsByUser(ctx context.Context, userID string) ([]Feed, e
 			&i.Language,
 			&i.UserID,
 			&i.SourceFeedID,
+			&i.CategoryID,
 			&i.LastFetchedAt,
 			&i.CreatedAt,
 		); err != nil {
@@ -742,6 +907,36 @@ type MarkArticleUnreadParams struct {
 
 func (q *Queries) MarkArticleUnread(ctx context.Context, arg MarkArticleUnreadParams) error {
 	_, err := q.db.ExecContext(ctx, markArticleUnread, arg.UserID, arg.ArticleID)
+	return err
+}
+
+const renameCategory = `-- name: RenameCategory :exec
+UPDATE categories SET name = ? WHERE id = ? AND user_id = ?
+`
+
+type RenameCategoryParams struct {
+	Name   string `json:"name"`
+	ID     string `json:"id"`
+	UserID string `json:"user_id"`
+}
+
+func (q *Queries) RenameCategory(ctx context.Context, arg RenameCategoryParams) error {
+	_, err := q.db.ExecContext(ctx, renameCategory, arg.Name, arg.ID, arg.UserID)
+	return err
+}
+
+const setFeedCategory = `-- name: SetFeedCategory :exec
+UPDATE feeds SET category_id = ? WHERE id = ? AND user_id = ?
+`
+
+type SetFeedCategoryParams struct {
+	CategoryID *string `json:"category_id"`
+	ID         string  `json:"id"`
+	UserID     string  `json:"user_id"`
+}
+
+func (q *Queries) SetFeedCategory(ctx context.Context, arg SetFeedCategoryParams) error {
+	_, err := q.db.ExecContext(ctx, setFeedCategory, arg.CategoryID, arg.ID, arg.UserID)
 	return err
 }
 

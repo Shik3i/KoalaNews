@@ -77,7 +77,8 @@
           href={article.link ?? '#'}
           target="_blank"
           rel="noopener noreferrer nofollow"
-          onclick={() => ontoggleread?.(true)}>{article.title ?? 'Untitled'}</a
+          onclick={() => ontoggleread?.(true)}
+          >{article.title ? stripTags(article.title) : 'Untitled'}</a
         >
       </h2>
 

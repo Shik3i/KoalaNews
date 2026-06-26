@@ -1,5 +1,14 @@
 <script lang="ts">
-  import { listArticles, markRead, markUnread, markAllRead, type Article } from '$lib/api';
+  import { onMount } from 'svelte';
+  import {
+    listArticles,
+    markRead,
+    markUnread,
+    markAllRead,
+    listCategories,
+    type Article,
+    type Category,
+  } from '$lib/api';
   import { user } from '$lib/auth';
   import ArticleCard from '$lib/components/ArticleCard.svelte';
 
@@ -11,6 +20,8 @@
 
   let lang = $state('en');
   let articles = $state<Article[]>([]);
+  let categories = $state<Category[]>([]);
+  let activeCategory = $state('');
   let loading = $state(true);
   let error = $state<string | null>(null);
 
@@ -19,7 +30,9 @@
     error = null;
     try {
       // Logged-in users get their personal subscription feed; guests get the locale feed.
-      articles = $user ? await listArticles({ limit: 40 }) : await listArticles({ lang, limit: 40 });
+      articles = $user
+        ? await listArticles({ limit: 40, category: activeCategory || undefined })
+        : await listArticles({ lang, limit: 40 });
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load';
     } finally {
@@ -27,10 +40,19 @@
     }
   }
 
+  onMount(async () => {
+    try {
+      categories = await listCategories();
+    } catch {
+      // categories are optional UI; ignore failures
+    }
+  });
+
   $effect(() => {
-    // Re-run when the user logs in/out or the guest language changes.
+    // Re-run when the user logs in/out, the guest language, or the category filter changes.
     void $user;
     void lang;
+    void activeCategory;
     load();
   });
 
@@ -68,6 +90,22 @@
       <button class="surface px-3 py-1.5 text-sm" onclick={markAll}>Mark all read</button>
     {/if}
   </div>
+  {#if categories.length > 0}
+    <div class="mb-5 flex flex-wrap items-center gap-2">
+      <button
+        class="surface px-3 py-1.5 text-sm"
+        style={activeCategory === '' ? 'outline: 2px solid var(--accent);' : ''}
+        onclick={() => (activeCategory = '')}>All</button
+      >
+      {#each categories as cat (cat.id)}
+        <button
+          class="surface px-3 py-1.5 text-sm"
+          style={activeCategory === cat.id ? 'outline: 2px solid var(--accent);' : ''}
+          onclick={() => (activeCategory = cat.id)}>{cat.name}</button
+        >
+      {/each}
+    </div>
+  {/if}
 {:else}
   <div class="mb-5 flex items-center gap-2">
     {#each LANGS as [code, label]}

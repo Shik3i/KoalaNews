@@ -46,6 +46,12 @@ func (s *Server) Router() http.Handler {
 		r.Delete("/feeds/{id}", s.requireAuth(s.handleDeleteFeed))
 		r.Get("/feeds/opml", s.requireAuth(s.handleOPMLExport))
 		r.Post("/feeds/opml/import", s.requireAuth(s.handleOPMLImport))
+		r.Patch("/feeds/{id}/category", s.requireAuth(s.handleSetFeedCategory))
+
+		r.Get("/categories", s.requireAuth(s.handleListCategories))
+		r.Post("/categories", s.requireAuth(s.handleCreateCategory))
+		r.Patch("/categories/{id}", s.requireAuth(s.handleRenameCategory))
+		r.Delete("/categories/{id}", s.requireAuth(s.handleDeleteCategory))
 
 		r.Get("/preferences", s.requireAuth(s.handleGetPreferences))
 		r.Put("/preferences", s.requireAuth(s.handlePutPreferences))
@@ -97,6 +103,30 @@ func (s *Server) handleListArticles(w http.ResponseWriter, r *http.Request) {
 
 	views := []articleView{}
 	if personal {
+		categoryID := r.URL.Query().Get("category")
+		if categoryID != "" {
+			rows, err := s.store.ListArticlesForUserByCategory(r.Context(), sqlcgen.ListArticlesForUserByCategoryParams{
+				UserID:     u.ID,
+				UserID_2:   u.ID,
+				CategoryID: &categoryID,
+				Limit:      int64(limit),
+				Offset:     int64(offset),
+			})
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
+				return
+			}
+			for _, a := range rows {
+				views = append(views, articleView{
+					ID: a.ID, Title: a.Title, Link: a.Link, Description: a.Description,
+					Content: a.Content, ImageURL: a.ImageUrl, PubDate: a.PubDate, Guid: a.Guid,
+					SourceFeedID: a.SourceFeedID, CreatedAt: a.CreatedAt, Read: a.Read != 0,
+				})
+			}
+			writeJSON(w, http.StatusOK, views)
+			return
+		}
+
 		rows, err := s.store.ListArticlesForUser(r.Context(), sqlcgen.ListArticlesForUserParams{
 			UserID:   u.ID,
 			UserID_2: u.ID,

@@ -29,8 +29,10 @@ Status: **In Arbeit** — Fundament + RSS-Pipeline lauffähig (vertikaler Schnit
 
 - [x] **OPML Import/Export** — `GET /api/feeds/opml` (Download, `text/x-opml`), `POST /api/feeds/opml/import` (parst verschachtelte Outlines, SSRF-validiert pro Feed, max 200, Dedup). Frontend: Export-Link + Import-File-Picker im Dashboard mit Ergebnis-Summary. **Verifiziert** (Round-trip A→B: added 2, Re-Import skipped 2; Export-Headers korrekt; unauth 401).
 
+- [x] **Kategorien** — `categories`-Tabelle + `feeds.category_id` (FK `SET NULL`). CRUD (`/api/categories`), Feed-Zuweisung (`PATCH /api/feeds/{id}/category`), Artikel-Filterung (`?category=`). Frontend: Kategorie-Verwaltung im Dashboard (Add/Delete), Select pro Feed, Filter-Tabs auf der Home-Page mit Live-Counts. **End-to-end verifiziert** (Tech-Filter zeigt nur theverge.com, Counter 40→10). Bonus-Fix: HTML-Entities im Artikel-Titel werden jetzt auch decodiert (`&#8217;` → `'`).
+
 ### Als Nächstes
-- [ ] Weitere Parität: Statistiken (user-facing), Smart-Feeds, Kategorien, i18n, Backups.
+- [ ] Weitere Parität: Statistiken (user-facing), Smart-Feeds, i18n, Backups.
 - [ ] **Phase 4** — restliche API-Routes: feeds CRUD, categories, smart-feeds, statistics, admin (users/settings/backups), read-state, OPML.
 - [ ] **Phase 5 (Rest)** — Seiten: login/register, dashboard (Feeds verwalten), settings, statistics, admin. i18n (de/en/fr).
 - [ ] **Phase 6/7** — GFS-Backups (CLI + admin), Cutover via Reverse-Proxy.

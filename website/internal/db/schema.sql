@@ -36,6 +36,15 @@ CREATE TABLE IF NOT EXISTS source_feeds (
 );
 CREATE INDEX IF NOT EXISTS idx_source_feeds_lang ON source_feeds(language);
 
+CREATE TABLE IF NOT EXISTS categories (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id);
+
 CREATE TABLE IF NOT EXISTS feeds (
     id              TEXT PRIMARY KEY,
     url             TEXT NOT NULL,
@@ -44,12 +53,14 @@ CREATE TABLE IF NOT EXISTS feeds (
     language        TEXT NOT NULL DEFAULT 'en',
     user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     source_feed_id  TEXT REFERENCES source_feeds(id) ON DELETE CASCADE,
+    category_id     TEXT REFERENCES categories(id) ON DELETE SET NULL,
     last_fetched_at TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(user_id, url)
 );
 CREATE INDEX IF NOT EXISTS idx_feeds_user ON feeds(user_id);
 CREATE INDEX IF NOT EXISTS idx_feeds_source ON feeds(source_feed_id);
+CREATE INDEX IF NOT EXISTS idx_feeds_category ON feeds(category_id);
 
 CREATE TABLE IF NOT EXISTS articles (
     id             TEXT PRIMARY KEY,

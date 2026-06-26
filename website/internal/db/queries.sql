@@ -63,6 +63,37 @@ RETURNING *;
 -- name: ListFeedsByUser :many
 SELECT * FROM feeds WHERE user_id = ? ORDER BY created_at DESC;
 
+-- name: SetFeedCategory :exec
+UPDATE feeds SET category_id = ? WHERE id = ? AND user_id = ?;
+
+-- name: CreateCategory :one
+INSERT INTO categories (id, name, user_id) VALUES (?, ?, ?)
+RETURNING *;
+
+-- name: ListCategoriesByUser :many
+SELECT * FROM categories WHERE user_id = ? ORDER BY name ASC;
+
+-- name: GetCategoryByID :one
+SELECT * FROM categories WHERE id = ? LIMIT 1;
+
+-- name: RenameCategory :exec
+UPDATE categories SET name = ? WHERE id = ? AND user_id = ?;
+
+-- name: DeleteCategoryForUser :exec
+DELETE FROM categories WHERE id = ? AND user_id = ?;
+
+-- name: ListArticlesForUserByCategory :many
+SELECT DISTINCT a.id, a.title, a.link, a.description, a.content, a.image_url,
+  a.pub_date, a.guid, a.source_feed_id, a.created_at,
+  CASE WHEN EXISTS(
+    SELECT 1 FROM article_reads ar WHERE ar.user_id = ? AND ar.article_id = a.id
+  ) THEN 1 ELSE 0 END AS read
+FROM articles a
+JOIN feeds f ON f.source_feed_id = a.source_feed_id
+WHERE f.user_id = ? AND f.category_id = ?
+ORDER BY a.pub_date DESC NULLS LAST, a.created_at DESC
+LIMIT ? OFFSET ?;
+
 -- name: GetFeedByID :one
 SELECT * FROM feeds WHERE id = ? LIMIT 1;
 
