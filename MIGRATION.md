@@ -37,8 +37,10 @@ Status: **In Arbeit** — Fundament + RSS-Pipeline lauffähig (vertikaler Schnit
 
 - [x] **i18n (de/en/fr)** — reine Frontend-Lösung (kein next-intl-Äquivalent nötig, da SPA + Go-API): `lib/messages.ts` (flaches Key-Dictionary, 61 Keys × 3 Sprachen) + `lib/i18n.ts` (Locale-Store, `localStorage`-persistiert, Auto-Detect via `navigator.language`). Sprachumschalter im Nav (Select statt URL-Präfix, da SPA ohne Server-Routing). Eingebaut in Nav/Home/Dashboard/Statistics/Admin/Auth. UI-Sprache bleibt **unabhängig** vom Artikel-`?lang=`/Feed-`language`-Feld (wie im Legacy: dort war es auch nur ein loser Default, kein Binding). **Verifiziert** (Screenshot: Sprachwechsel EN→DE live, Login-Seite komplett auf Deutsch).
 
+- [x] **Backups (GFS-Retention)** — `internal/backup`: `VACUUM INTO`-Snapshots (daily/weekly/monthly) direkt über die bestehende `*sql.DB`-Verbindung (kein `sqlite3`-CLI-Shellout nötig dank `modernc.org/sqlite`), Snapshot wird von Bulk-Tabellen (`articles`/`article_reads`/`image_cache`) befreit + re-`VACUUM`t, alte Generationen über 7/5/12 hinaus werden gelöscht. Endpoints: `GET/POST /api/admin/backups`, `GET /api/admin/backups/{name}` (Name-Validierung gegen Pfad-Traversal). Frontend: Backups-Sektion im Admin-Panel (Liste + „Create backup now" + Download-Links). **Verifiziert** (curl: Snapshot erstellt, Bulk-Tabellen bestätigt leer/User-Daten erhalten, Traversal-Versuch + unbekannter Name → 404; Browser-Screenshot der Liste).
+
 ### Als Nächstes
-- [ ] Weitere Parität: Backups (GFS-Retention).
+Volle Feature-Parität laut Scope-Entscheidung erreicht (Auth, Dashboard, Appearance, Admin, Read-State, OPML, Kategorien, Smart-Feeds, Statistiken, i18n, Backups). Verbleibend für Produktionsreife: Phase 6/7 (Cutover-Strategie, Reverse-Proxy, CI-Pipeline) — siehe unten.
 - [ ] **Phase 4** — restliche API-Routes: feeds CRUD, categories, smart-feeds, statistics, admin (users/settings/backups), read-state, OPML.
 - [ ] **Phase 5 (Rest)** — Seiten: login/register, dashboard (Feeds verwalten), settings, statistics, admin. i18n (de/en/fr).
 - [ ] **Phase 6/7** — GFS-Backups (CLI + admin), Cutover via Reverse-Proxy.
