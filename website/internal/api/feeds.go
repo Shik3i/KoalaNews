@@ -15,6 +15,7 @@ type feedView struct {
 	ID          string  `json:"id"`
 	URL         string  `json:"url"`
 	Title       *string `json:"title"`
+	CustomTitle *string `json:"custom_title"`
 	Description *string `json:"description"`
 	Language    string  `json:"language"`
 	CategoryID  *string `json:"category_id"`
@@ -23,7 +24,7 @@ type feedView struct {
 
 func toFeedView(f sqlcgen.Feed) feedView {
 	return feedView{
-		ID: f.ID, URL: f.Url, Title: f.Title, Description: f.Description,
+		ID: f.ID, URL: f.Url, Title: f.Title, CustomTitle: f.CustomTitle, Description: f.Description,
 		Language: f.Language, CategoryID: f.CategoryID, CreatedAt: f.CreatedAt,
 	}
 }
@@ -97,6 +98,41 @@ func (s *Server) handleSetFeedCategory(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.store.SetFeedCategory(r.Context(), sqlcgen.SetFeedCategoryParams{
 		CategoryID: body.CategoryID, ID: feedID, UserID: u.ID,
+	}); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "update failed"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleRenameFeed(w http.ResponseWriter, r *http.Request) {
+	u := currentUser(r)
+	feedID := chi.URLParam(r, "id")
+
+	var body struct {
+		Title string `json:"title"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
+		return
+	}
+
+	feed, err := s.store.GetFeedByID(r.Context(), feedID)
+	if err != nil || feed.UserID != u.ID {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "feed not found"})
+		return
+	}
+
+	// Empty title clears the override (falls back to the auto-derived label).
+	var custom *string
+	if t := strings.TrimSpace(body.Title); t != "" {
+		if len(t) > 80 {
+			t = t[:80]
+		}
+		custom = &t
+	}
+	if err := s.store.UpdateFeedTitle(r.Context(), sqlcgen.UpdateFeedTitleParams{
+		CustomTitle: custom, ID: feedID, UserID: u.ID,
 	}); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "update failed"})
 		return

@@ -74,6 +74,9 @@ SELECT * FROM feeds WHERE user_id = ? ORDER BY created_at DESC;
 -- name: SetFeedCategory :exec
 UPDATE feeds SET category_id = ? WHERE id = ? AND user_id = ?;
 
+-- name: UpdateFeedTitle :exec
+UPDATE feeds SET custom_title = ? WHERE id = ? AND user_id = ?;
+
 -- name: CreateCategory :one
 INSERT INTO categories (id, name, user_id) VALUES (?, ?, ?)
 RETURNING *;
@@ -162,6 +165,15 @@ SELECT * FROM smart_feeds WHERE id = ? LIMIT 1;
 
 -- name: DeleteSmartFeedForUser :exec
 DELETE FROM smart_feeds WHERE id = ? AND user_id = ?;
+
+-- name: AddSmartFeedFeed :exec
+INSERT OR IGNORE INTO smart_feed_feeds (smart_feed_id, feed_id) VALUES (?, ?);
+
+-- name: ClearSmartFeedFeeds :exec
+DELETE FROM smart_feed_feeds WHERE smart_feed_id = ?;
+
+-- name: ListSmartFeedFeedIDs :many
+SELECT feed_id FROM smart_feed_feeds WHERE smart_feed_id = ?;
 
 -- name: ListArticlesForUserBySmartFeed :many
 SELECT DISTINCT a.id, a.title, a.link, a.description, a.content, a.image_url,

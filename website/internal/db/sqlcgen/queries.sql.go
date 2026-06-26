@@ -9,6 +9,29 @@ import (
 	"context"
 )
 
+const addSmartFeedFeed = `-- name: AddSmartFeedFeed :exec
+INSERT OR IGNORE INTO smart_feed_feeds (smart_feed_id, feed_id) VALUES (?, ?)
+`
+
+type AddSmartFeedFeedParams struct {
+	SmartFeedID string `json:"smart_feed_id"`
+	FeedID      string `json:"feed_id"`
+}
+
+func (q *Queries) AddSmartFeedFeed(ctx context.Context, arg AddSmartFeedFeedParams) error {
+	_, err := q.db.ExecContext(ctx, addSmartFeedFeed, arg.SmartFeedID, arg.FeedID)
+	return err
+}
+
+const clearSmartFeedFeeds = `-- name: ClearSmartFeedFeeds :exec
+DELETE FROM smart_feed_feeds WHERE smart_feed_id = ?
+`
+
+func (q *Queries) ClearSmartFeedFeeds(ctx context.Context, smartFeedID string) error {
+	_, err := q.db.ExecContext(ctx, clearSmartFeedFeeds, smartFeedID)
+	return err
+}
+
 const countArticles = `-- name: CountArticles :one
 SELECT count(*) FROM articles
 `
@@ -90,7 +113,7 @@ func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) 
 const createFeed = `-- name: CreateFeed :one
 INSERT INTO feeds (id, url, title, description, language, user_id, source_feed_id, last_fetched_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-RETURNING id, url, title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at
+RETURNING id, url, title, custom_title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at
 `
 
 type CreateFeedParams struct {
@@ -118,6 +141,7 @@ func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, e
 		&i.ID,
 		&i.Url,
 		&i.Title,
+		&i.CustomTitle,
 		&i.Description,
 		&i.Language,
 		&i.UserID,
@@ -326,7 +350,7 @@ func (q *Queries) GetCategoryByID(ctx context.Context, id string) (Category, err
 }
 
 const getFeedByID = `-- name: GetFeedByID :one
-SELECT id, url, title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at FROM feeds WHERE id = ? LIMIT 1
+SELECT id, url, title, custom_title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at FROM feeds WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetFeedByID(ctx context.Context, id string) (Feed, error) {
@@ -336,6 +360,7 @@ func (q *Queries) GetFeedByID(ctx context.Context, id string) (Feed, error) {
 		&i.ID,
 		&i.Url,
 		&i.Title,
+		&i.CustomTitle,
 		&i.Description,
 		&i.Language,
 		&i.UserID,
@@ -468,7 +493,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 }
 
 const getUserFeedByURL = `-- name: GetUserFeedByURL :one
-SELECT id, url, title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at FROM feeds WHERE user_id = ? AND url = ? LIMIT 1
+SELECT id, url, title, custom_title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at FROM feeds WHERE user_id = ? AND url = ? LIMIT 1
 `
 
 type GetUserFeedByURLParams struct {
@@ -483,6 +508,7 @@ func (q *Queries) GetUserFeedByURL(ctx context.Context, arg GetUserFeedByURLPara
 		&i.ID,
 		&i.Url,
 		&i.Title,
+		&i.CustomTitle,
 		&i.Description,
 		&i.Language,
 		&i.UserID,
@@ -495,7 +521,7 @@ func (q *Queries) GetUserFeedByURL(ctx context.Context, arg GetUserFeedByURLPara
 }
 
 const getUserPreference = `-- name: GetUserPreference :one
-SELECT user_id, theme, design, card_style, density, font_scale, accent_color, show_images, show_source, show_date, show_description, description_lines, updated_at FROM user_preferences WHERE user_id = ? LIMIT 1
+SELECT user_id, theme, design, card_style, density, font_scale, accent_color, show_images, show_source, show_date, show_description, show_read_more, description_lines, updated_at FROM user_preferences WHERE user_id = ? LIMIT 1
 `
 
 func (q *Queries) GetUserPreference(ctx context.Context, userID string) (UserPreference, error) {
@@ -513,6 +539,7 @@ func (q *Queries) GetUserPreference(ctx context.Context, userID string) (UserPre
 		&i.ShowSource,
 		&i.ShowDate,
 		&i.ShowDescription,
+		&i.ShowReadMore,
 		&i.DescriptionLines,
 		&i.UpdatedAt,
 	)
@@ -971,7 +998,7 @@ func (q *Queries) ListExistingGuids(ctx context.Context, sourceFeedID *string) (
 }
 
 const listFeedsByUser = `-- name: ListFeedsByUser :many
-SELECT id, url, title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at FROM feeds WHERE user_id = ? ORDER BY created_at DESC
+SELECT id, url, title, custom_title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at FROM feeds WHERE user_id = ? ORDER BY created_at DESC
 `
 
 func (q *Queries) ListFeedsByUser(ctx context.Context, userID string) ([]Feed, error) {
@@ -987,6 +1014,7 @@ func (q *Queries) ListFeedsByUser(ctx context.Context, userID string) ([]Feed, e
 			&i.ID,
 			&i.Url,
 			&i.Title,
+			&i.CustomTitle,
 			&i.Description,
 			&i.Language,
 			&i.UserID,
@@ -998,6 +1026,33 @@ func (q *Queries) ListFeedsByUser(ctx context.Context, userID string) ([]Feed, e
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSmartFeedFeedIDs = `-- name: ListSmartFeedFeedIDs :many
+SELECT feed_id FROM smart_feed_feeds WHERE smart_feed_id = ?
+`
+
+func (q *Queries) ListSmartFeedFeedIDs(ctx context.Context, smartFeedID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listSmartFeedFeedIDs, smartFeedID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var feed_id string
+		if err := rows.Scan(&feed_id); err != nil {
+			return nil, err
+		}
+		items = append(items, feed_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -1275,6 +1330,21 @@ func (q *Queries) TopSourceFeedsByArticleCount(ctx context.Context, limit int64)
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateFeedTitle = `-- name: UpdateFeedTitle :exec
+UPDATE feeds SET custom_title = ? WHERE id = ? AND user_id = ?
+`
+
+type UpdateFeedTitleParams struct {
+	CustomTitle *string `json:"custom_title"`
+	ID          string  `json:"id"`
+	UserID      string  `json:"user_id"`
+}
+
+func (q *Queries) UpdateFeedTitle(ctx context.Context, arg UpdateFeedTitleParams) error {
+	_, err := q.db.ExecContext(ctx, updateFeedTitle, arg.CustomTitle, arg.ID, arg.UserID)
+	return err
 }
 
 const updateSourceFeedMeta = `-- name: UpdateSourceFeedMeta :exec

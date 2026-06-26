@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS feeds (
     id              TEXT PRIMARY KEY,
     url             TEXT NOT NULL,
     title           TEXT,
+    custom_title    TEXT,
     description     TEXT,
     language        TEXT NOT NULL DEFAULT 'en',
     user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -78,16 +79,27 @@ CREATE TABLE IF NOT EXISTS articles (
 CREATE INDEX IF NOT EXISTS idx_articles_source_pub ON articles(source_feed_id, pub_date);
 CREATE INDEX IF NOT EXISTS idx_articles_pub ON articles(pub_date);
 
+-- A "custom feed" is a saved view: an optional keyword query plus a set of
+-- selected feeds (via smart_feed_feeds). `query` may be empty (feed-only view);
+-- the legacy `feed_id` column is unused by the new multi-feed model.
 CREATE TABLE IF NOT EXISTS smart_feeds (
     id         TEXT PRIMARY KEY,
     name       TEXT NOT NULL,
-    query      TEXT NOT NULL,
+    query      TEXT NOT NULL DEFAULT '',
     feed_id    TEXT REFERENCES feeds(id) ON DELETE CASCADE,
     user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(user_id, name)
 );
 CREATE INDEX IF NOT EXISTS idx_smart_feeds_user ON smart_feeds(user_id);
+
+-- Membership of feeds in a custom feed (many-to-many).
+CREATE TABLE IF NOT EXISTS smart_feed_feeds (
+    smart_feed_id TEXT NOT NULL REFERENCES smart_feeds(id) ON DELETE CASCADE,
+    feed_id       TEXT NOT NULL REFERENCES feeds(id) ON DELETE CASCADE,
+    PRIMARY KEY (smart_feed_id, feed_id)
+);
+CREATE INDEX IF NOT EXISTS idx_smart_feed_feeds_feed ON smart_feed_feeds(feed_id);
 
 CREATE TABLE IF NOT EXISTS article_reads (
     user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -108,7 +120,8 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     show_source       INTEGER NOT NULL DEFAULT 1,
     show_date         INTEGER NOT NULL DEFAULT 1,
     show_description   INTEGER NOT NULL DEFAULT 1,
-    description_lines  INTEGER NOT NULL DEFAULT 2,
+    show_read_more     INTEGER NOT NULL DEFAULT 1,
+    description_lines  INTEGER NOT NULL DEFAULT 3,
     updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

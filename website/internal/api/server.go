@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -49,6 +50,7 @@ func (s *Server) Router() http.Handler {
 		r.Get("/feeds/opml", s.requireAuth(s.handleOPMLExport))
 		r.Post("/feeds/opml/import", s.requireAuth(s.handleOPMLImport))
 		r.Patch("/feeds/{id}/category", s.requireAuth(s.handleSetFeedCategory))
+		r.Patch("/feeds/{id}/title", s.requireAuth(s.handleRenameFeed))
 
 		r.Get("/categories", s.requireAuth(s.handleListCategories))
 		r.Post("/categories", s.requireAuth(s.handleCreateCategory))
@@ -112,57 +114,43 @@ func (s *Server) handleListArticles(w http.ResponseWriter, r *http.Request) {
 
 	views := []articleView{}
 	if personal {
+		// Saved custom feed: optional keyword over a selected set of feeds.
+		// An empty selection means "all my feeds" (keyword-only view).
 		if smartFeedID := r.URL.Query().Get("smartFeed"); smartFeedID != "" {
 			sf, err := s.store.GetSmartFeedByID(r.Context(), smartFeedID)
 			if err != nil || sf.UserID != u.ID {
-				writeJSON(w, http.StatusNotFound, map[string]string{"error": "smart feed not found"})
+				writeJSON(w, http.StatusNotFound, map[string]string{"error": "custom feed not found"})
 				return
 			}
-			rows, err := s.store.ListArticlesForUserBySmartFeed(r.Context(), sqlcgen.ListArticlesForUserBySmartFeedParams{
-				ReaderID: u.ID,
-				OwnerID:  u.ID,
-				FeedID:   feedIDFilter(sf.FeedID),
-				FeedId2:  feedIDFilterStr(sf.FeedID),
-				Query:    sf.Query,
-				Query2:   sf.Query,
-				Limit:    int64(limit),
-				Offset:   int64(offset),
-			})
+			feedIDs, err := s.store.ListSmartFeedFeedIDs(r.Context(), sf.ID)
 			if err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
 				return
 			}
-			for _, a := range rows {
-				views = append(views, articleView{
-					ID: a.ID, Title: a.Title, Link: a.Link, Description: a.Description,
-					Content: a.Content, ImageURL: a.ImageUrl, PubDate: a.PubDate, Guid: a.Guid,
-					SourceFeedID: a.SourceFeedID, CreatedAt: a.CreatedAt, Read: a.Read != 0,
-				})
+			if len(feedIDs) == 0 {
+				feedIDs, err = s.allUserFeedIDs(r, u.ID)
+				if err != nil {
+					writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
+					return
+				}
 			}
-			writeJSON(w, http.StatusOK, views)
+			rows, err := s.store.ListArticlesByFeedIDs(r.Context(), u.ID, u.ID, feedIDs, sf.Query, int64(limit), int64(offset))
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
+				return
+			}
+			writeJSON(w, http.StatusOK, appendFeedRows(views, rows))
 			return
 		}
 
-		if feedID := r.URL.Query().Get("feed"); feedID != "" {
-			rows, err := s.store.ListArticlesForUserByFeed(r.Context(), sqlcgen.ListArticlesForUserByFeedParams{
-				UserID:   u.ID,
-				UserID_2: u.ID,
-				ID:       feedID,
-				Limit:    int64(limit),
-				Offset:   int64(offset),
-			})
+		// Ad-hoc multi-feed filter: ?feeds=id1,id2 (or legacy single ?feed=id).
+		if feedIDs := parseFeedIDs(r); len(feedIDs) > 0 {
+			rows, err := s.store.ListArticlesByFeedIDs(r.Context(), u.ID, u.ID, feedIDs, "", int64(limit), int64(offset))
 			if err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
 				return
 			}
-			for _, a := range rows {
-				views = append(views, articleView{
-					ID: a.ID, Title: a.Title, Link: a.Link, Description: a.Description,
-					Content: a.Content, ImageURL: a.ImageUrl, PubDate: a.PubDate, Guid: a.Guid,
-					SourceFeedID: a.SourceFeedID, CreatedAt: a.CreatedAt, Read: a.Read != 0,
-				})
-			}
-			writeJSON(w, http.StatusOK, views)
+			writeJSON(w, http.StatusOK, appendFeedRows(views, rows))
 			return
 		}
 
@@ -252,22 +240,47 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// feedIDFilter converts an optional feed id into the interface{} sqlc expects
-// for the nullable `feed_id IS NULL` comparison.
-func feedIDFilter(id *string) interface{} {
-	if id == nil {
-		return nil
+// appendFeedRows maps the shared multi-feed article row type into article views.
+func appendFeedRows(views []articleView, rows []sqlcgen.ListArticlesForUserByFeedRow) []articleView {
+	for _, a := range rows {
+		views = append(views, articleView{
+			ID: a.ID, Title: a.Title, Link: a.Link, Description: a.Description,
+			Content: a.Content, ImageURL: a.ImageUrl, PubDate: a.PubDate, Guid: a.Guid,
+			SourceFeedID: a.SourceFeedID, CreatedAt: a.CreatedAt, Read: a.Read != 0,
+		})
 	}
-	return *id
+	return views
 }
 
-// feedIDFilterStr mirrors feedIDFilter for the companion `f.id = ?` comparison,
-// which is typed as a plain string since f.id is NOT NULL.
-func feedIDFilterStr(id *string) string {
-	if id == nil {
-		return ""
+// parseFeedIDs reads the ad-hoc feed filter from ?feeds=a,b,c (or legacy ?feed=a).
+func parseFeedIDs(r *http.Request) []string {
+	raw := r.URL.Query().Get("feeds")
+	if raw == "" {
+		raw = r.URL.Query().Get("feed")
 	}
-	return *id
+	if raw == "" {
+		return nil
+	}
+	ids := make([]string, 0, 4)
+	for _, part := range strings.Split(raw, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			ids = append(ids, p)
+		}
+	}
+	return ids
+}
+
+// allUserFeedIDs returns every feed id the user subscribes to.
+func (s *Server) allUserFeedIDs(r *http.Request, userID string) ([]string, error) {
+	feeds, err := s.store.ListFeedsByUser(r.Context(), userID)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(feeds))
+	for _, f := range feeds {
+		ids = append(ids, f.ID)
+	}
+	return ids, nil
 }
 
 func clampInt(s string, def, min, max int) int {

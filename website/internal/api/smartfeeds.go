@@ -10,16 +10,22 @@ import (
 	"github.com/koaladev/koalanews/internal/id"
 )
 
+// A custom feed is a saved view: an optional keyword query plus a set of
+// selected feeds. Persisted in smart_feeds (+ smart_feed_feeds junction).
 type smartFeedView struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	Query     string  `json:"query"`
-	FeedID    *string `json:"feed_id"`
-	CreatedAt string  `json:"created_at"`
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Query     string   `json:"query"`
+	FeedIDs   []string `json:"feed_ids"`
+	CreatedAt string   `json:"created_at"`
 }
 
-func toSmartFeedView(sf sqlcgen.SmartFeed) smartFeedView {
-	return smartFeedView{ID: sf.ID, Name: sf.Name, Query: sf.Query, FeedID: sf.FeedID, CreatedAt: sf.CreatedAt}
+func (s *Server) toSmartFeedView(r *http.Request, sf sqlcgen.SmartFeed) smartFeedView {
+	feedIDs, err := s.store.ListSmartFeedFeedIDs(r.Context(), sf.ID)
+	if err != nil || feedIDs == nil {
+		feedIDs = []string{} // marshal as [] not null even when empty
+	}
+	return smartFeedView{ID: sf.ID, Name: sf.Name, Query: sf.Query, FeedIDs: feedIDs, CreatedAt: sf.CreatedAt}
 }
 
 func (s *Server) handleListSmartFeeds(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +37,7 @@ func (s *Server) handleListSmartFeeds(w http.ResponseWriter, r *http.Request) {
 	}
 	views := make([]smartFeedView, 0, len(rows))
 	for _, sf := range rows {
-		views = append(views, toSmartFeedView(sf))
+		views = append(views, s.toSmartFeedView(r, sf))
 	}
 	writeJSON(w, http.StatusOK, views)
 }
@@ -39,39 +45,51 @@ func (s *Server) handleListSmartFeeds(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCreateSmartFeed(w http.ResponseWriter, r *http.Request) {
 	u := currentUser(r)
 	var body struct {
-		Name   string  `json:"name"`
-		Query  string  `json:"query"`
-		FeedID *string `json:"feed_id"`
+		Name    string   `json:"name"`
+		Query   string   `json:"query"`
+		FeedIDs []string `json:"feed_ids"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&body); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192)).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return
 	}
 	name := strings.TrimSpace(body.Name)
 	query := strings.TrimSpace(body.Query)
-	if name == "" || len(name) > 64 || query == "" || len(query) > 200 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name and query are required"})
+	// A custom feed needs a name and at least one signal (feeds and/or a keyword).
+	if name == "" || len(name) > 64 || len(query) > 200 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "a name (max 64 chars) is required"})
+		return
+	}
+	if len(body.FeedIDs) == 0 && query == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "pick at least one feed or enter a keyword"})
 		return
 	}
 
-	if body.FeedID != nil && *body.FeedID != "" {
-		feed, err := s.store.GetFeedByID(r.Context(), *body.FeedID)
+	// Validate every selected feed belongs to the user.
+	for _, fid := range body.FeedIDs {
+		feed, err := s.store.GetFeedByID(r.Context(), fid)
 		if err != nil || feed.UserID != u.ID {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "feed not found"})
 			return
 		}
-	} else {
-		body.FeedID = nil
 	}
 
 	sf, err := s.store.CreateSmartFeed(r.Context(), sqlcgen.CreateSmartFeedParams{
-		ID: id.New(), Name: name, Query: query, FeedID: body.FeedID, UserID: u.ID,
+		ID: id.New(), Name: name, Query: query, FeedID: nil, UserID: u.ID,
 	})
 	if err != nil {
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "smart feed already exists"})
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "a custom feed with this name already exists"})
 		return
 	}
-	writeJSON(w, http.StatusCreated, toSmartFeedView(sf))
+	for _, fid := range body.FeedIDs {
+		if err := s.store.AddSmartFeedFeed(r.Context(), sqlcgen.AddSmartFeedFeedParams{
+			SmartFeedID: sf.ID, FeedID: fid,
+		}); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "could not save feed selection"})
+			return
+		}
+	}
+	writeJSON(w, http.StatusCreated, s.toSmartFeedView(r, sf))
 }
 
 func (s *Server) handleDeleteSmartFeed(w http.ResponseWriter, r *http.Request) {

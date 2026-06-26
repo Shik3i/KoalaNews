@@ -34,6 +34,7 @@ type Feed struct {
 	ID            string  `json:"id"`
 	Url           string  `json:"url"`
 	Title         *string `json:"title"`
+	CustomTitle   *string `json:"custom_title"`
 	Description   *string `json:"description"`
 	Language      string  `json:"language"`
 	UserID        string  `json:"user_id"`
@@ -86,6 +87,11 @@ type SmartFeed struct {
 	CreatedAt string  `json:"created_at"`
 }
 
+type SmartFeedFeed struct {
+	SmartFeedID string `json:"smart_feed_id"`
+	FeedID      string `json:"feed_id"`
+}
+
 type SourceFeed struct {
 	ID            string  `json:"id"`
 	Url           string  `json:"url"`
@@ -119,6 +125,7 @@ type UserPreference struct {
 	ShowSource       int64  `json:"show_source"`
 	ShowDate         int64  `json:"show_date"`
 	ShowDescription  int64  `json:"show_description"`
+	ShowReadMore     int64  `json:"show_read_more"`
 	DescriptionLines int64  `json:"description_lines"`
 	UpdatedAt        string `json:"updated_at"`
 }
