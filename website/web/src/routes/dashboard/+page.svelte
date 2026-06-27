@@ -11,6 +11,7 @@
     createCategory,
     deleteCategory,
     setFeedCategory,
+    renameFeed,
     listSmartFeeds,
     createSmartFeed,
     deleteSmartFeed,
@@ -18,6 +19,8 @@
     type Category,
     type SmartFeed,
   } from '$lib/api';
+  import FeedPicker from '$lib/components/FeedPicker.svelte';
+  import { feedLabel } from '$lib/feeds';
   import { t } from '$lib/i18n';
 
   let feeds = $state<Feed[]>([]);
@@ -34,7 +37,9 @@
   let newCategoryName = $state('');
   let newSmartFeedName = $state('');
   let newSmartFeedQuery = $state('');
-  let newSmartFeedFeedId = $state('');
+  let newSmartFeedFeedIds = $state<string[]>([]);
+  let renameTitles = $state<Record<string, string>>({});
+  let renamingFeed = $state('');
 
   async function onImportFile(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -64,6 +69,7 @@
         listCategories(),
         listSmartFeeds(),
       ]);
+      syncRenameDrafts();
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load feeds';
     } finally {
@@ -79,6 +85,7 @@
     try {
       const feed = await addFeed(url.trim(), language);
       feeds = [feed, ...feeds];
+      renameTitles = { ...renameTitles, [feed.id]: feed.custom_title ?? '' };
       url = '';
     } catch (err) {
       error = err instanceof Error ? err.message : 'Could not add feed';
@@ -89,11 +96,15 @@
 
   async function remove(id: string) {
     const prev = feeds;
+    const prevRenameTitles = renameTitles;
     feeds = feeds.filter((f) => f.id !== id);
+    const { [id]: _removed, ...rest } = renameTitles;
+    renameTitles = rest;
     try {
       await deleteFeed(id);
     } catch {
       feeds = prev; // rollback on failure
+      renameTitles = prevRenameTitles;
     }
   }
 
@@ -134,17 +145,41 @@
     }
   }
 
+  function syncRenameDrafts() {
+    const next: Record<string, string> = {};
+    for (const feed of feeds) {
+      next[feed.id] = renameTitles[feed.id] ?? feed.custom_title ?? '';
+    }
+    renameTitles = next;
+  }
+
+  async function saveFeedTitle(feed: Feed) {
+    const title = (renameTitles[feed.id] ?? '').trim();
+    const prev = feeds;
+    renamingFeed = feed.id;
+    error = null;
+    feeds = feeds.map((f) => (f.id === feed.id ? { ...f, custom_title: title || null } : f));
+    try {
+      await renameFeed(feed.id, title);
+    } catch (err) {
+      feeds = prev;
+      error = err instanceof Error ? err.message : 'Could not rename feed';
+    } finally {
+      renamingFeed = '';
+    }
+  }
+
   async function addSmartFeed(e: SubmitEvent) {
     e.preventDefault();
     const name = newSmartFeedName.trim();
     const query = newSmartFeedQuery.trim();
-    if (!name || !query) return;
+    if (!name || (!query && newSmartFeedFeedIds.length === 0)) return;
     try {
-      const sf = await createSmartFeed(name, query, newSmartFeedFeedId || null);
+      const sf = await createSmartFeed(name, query, newSmartFeedFeedIds);
       smartFeeds = [...smartFeeds, sf].sort((a, b) => a.name.localeCompare(b.name));
       newSmartFeedName = '';
       newSmartFeedQuery = '';
-      newSmartFeedFeedId = '';
+      newSmartFeedFeedIds = [];
     } catch (err) {
       error = err instanceof Error ? err.message : 'Could not create smart feed';
     }
@@ -160,9 +195,17 @@
     }
   }
 
-  function feedTitle(feedId: string | null): string {
-    if (!feedId) return '';
-    return feeds.find((f) => f.id === feedId)?.title ?? '';
+  function smartFeedDetail(sf: SmartFeed): string {
+    const parts: string[] = [];
+    if (sf.query) parts.push(`"${sf.query}"`);
+    if (sf.feed_ids.length > 0) {
+      const labels = sf.feed_ids
+        .map((feedId) => feeds.find((feed) => feed.id === feedId))
+        .filter((feed): feed is Feed => Boolean(feed))
+        .map(feedLabel);
+      parts.push(labels.length > 0 ? labels.join(', ') : `${sf.feed_ids.length} feeds`);
+    }
+    return parts.join(' · ');
   }
 
   onMount(() => {
@@ -252,37 +295,32 @@
     {#each smartFeeds as sf (sf.id)}
       <span class="surface flex items-center gap-2 px-3 py-1.5 text-sm">
         {sf.name}
-        <span class="text-muted">"{sf.query}"{feedTitle(sf.feed_id) ? ` in ${feedTitle(sf.feed_id)}` : ''}</span>
+        {#if smartFeedDetail(sf)}
+          <span class="max-w-sm truncate text-muted">{smartFeedDetail(sf)}</span>
+        {/if}
         <button class="text-muted hover:text-current" onclick={() => removeSmartFeed(sf.id)} title="Delete smart feed"
           >✕</button
         >
       </span>
     {/each}
   </div>
-  <form class="flex flex-wrap gap-2" onsubmit={addSmartFeed}>
-    <input
-      class="surface px-2 py-1.5 text-sm"
-      style="background: var(--bg-elevated); color: var(--text); width: 9rem;"
-      placeholder={$t('dashboard.name')}
-      bind:value={newSmartFeedName}
-    />
-    <input
-      class="surface px-2 py-1.5 text-sm"
-      style="background: var(--bg-elevated); color: var(--text); width: 12rem;"
-      placeholder={$t('dashboard.searchText')}
-      bind:value={newSmartFeedQuery}
-    />
-    <select
-      class="surface px-2 py-1.5 text-sm"
-      style="background: var(--bg-elevated); color: var(--text);"
-      bind:value={newSmartFeedFeedId}
-    >
-      <option value="">{$t('dashboard.anyFeed')}</option>
-      {#each feeds as feed (feed.id)}
-        <option value={feed.id}>{feed.title ?? feed.url}</option>
-      {/each}
-    </select>
-    <button class="surface px-3 py-1.5 text-sm">{$t('dashboard.add')}</button>
+  <form class="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]" onsubmit={addSmartFeed}>
+    <div class="space-y-2">
+      <input
+        class="surface w-full px-2 py-1.5 text-sm"
+        style="background: var(--bg-elevated); color: var(--text);"
+        placeholder={$t('dashboard.name')}
+        bind:value={newSmartFeedName}
+      />
+      <input
+        class="surface w-full px-2 py-1.5 text-sm"
+        style="background: var(--bg-elevated); color: var(--text);"
+        placeholder={$t('dashboard.searchText')}
+        bind:value={newSmartFeedQuery}
+      />
+      <button class="surface px-3 py-1.5 text-sm">{$t('dashboard.add')}</button>
+    </div>
+    <FeedPicker feeds={feeds} bind:selectedIds={newSmartFeedFeedIds} />
   </form>
 </section>
 
@@ -297,12 +335,27 @@
 {:else}
   <ul class="space-y-2">
     {#each feeds as feed (feed.id)}
-      <li class="surface flex items-center justify-between gap-3 px-4 py-3">
-        <div class="min-w-0">
-          <p class="truncate font-medium">{feed.title ?? feed.url}</p>
+      <li class="surface flex flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between">
+        <div class="min-w-0 flex-1">
+          <p class="truncate font-medium">{feedLabel(feed)}</p>
           <p class="truncate text-xs text-muted">{feed.url}</p>
+          <div class="mt-2 flex max-w-md items-center gap-2">
+            <input
+              class="surface min-w-0 flex-1 px-2 py-1.5 text-sm"
+              style="background: var(--bg-elevated); color: var(--text);"
+              placeholder={$t('dashboard.feedTitlePlaceholder')}
+              value={renameTitles[feed.id] ?? ''}
+              oninput={(e) =>
+                (renameTitles = { ...renameTitles, [feed.id]: (e.target as HTMLInputElement).value })}
+            />
+            <button
+              class="surface px-3 py-1.5 text-sm disabled:opacity-60"
+              disabled={renamingFeed === feed.id}
+              onclick={() => saveFeedTitle(feed)}>{renamingFeed === feed.id ? '…' : $t('dashboard.rename')}</button
+            >
+          </div>
         </div>
-        <div class="flex shrink-0 items-center gap-2">
+        <div class="flex shrink-0 flex-wrap items-center gap-2">
           <select
             class="surface px-2 py-1.5 text-sm"
             style="background: var(--bg-elevated); color: var(--text);"

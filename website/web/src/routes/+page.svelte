@@ -8,6 +8,7 @@
     listCategories,
     listSmartFeeds,
     listFeeds,
+    createSmartFeed,
     type Article,
     type Category,
     type SmartFeed,
@@ -16,6 +17,7 @@
   import { user } from '$lib/auth';
   import { t } from '$lib/i18n';
   import ArticleCard from '$lib/components/ArticleCard.svelte';
+  import FeedPicker from '$lib/components/FeedPicker.svelte';
 
   const LANGS = [
     ['en', '🇬🇧 English'],
@@ -30,7 +32,8 @@
   let feeds = $state<Feed[]>([]);
   let activeCategory = $state('');
   let activeSmartFeed = $state('');
-  let activeFeed = $state('');
+  let adhocFeedIds = $state<string[]>([]);
+  let feedPickerOpen = $state(false);
   let loading = $state(true);
   let error = $state<string | null>(null);
 
@@ -42,9 +45,9 @@
       articles = $user
         ? await listArticles({
             limit: 40,
-            category: activeSmartFeed || activeFeed ? undefined : activeCategory || undefined,
-            smartFeed: activeFeed ? undefined : activeSmartFeed || undefined,
-            feedId: activeFeed || undefined,
+            category: activeSmartFeed || adhocFeedIds.length ? undefined : activeCategory || undefined,
+            smartFeed: adhocFeedIds.length ? undefined : activeSmartFeed || undefined,
+            feeds: adhocFeedIds.length ? adhocFeedIds : undefined,
           })
         : await listArticles({ lang, limit: 40 });
     } catch (e) {
@@ -69,19 +72,34 @@
   function selectCategory(id: string) {
     activeCategory = id;
     activeSmartFeed = '';
-    activeFeed = '';
+    adhocFeedIds = [];
   }
 
   function selectSmartFeed(id: string) {
     activeSmartFeed = id;
     activeCategory = '';
-    activeFeed = '';
+    adhocFeedIds = [];
   }
 
-  function selectFeed(id: string) {
-    activeFeed = id;
+  function openFeedPicker() {
+    feedPickerOpen = !feedPickerOpen;
     activeCategory = '';
     activeSmartFeed = '';
+  }
+
+  async function saveAdhocFeed() {
+    if (adhocFeedIds.length === 0) return;
+    const name = window.prompt($t('home.customFeedName'));
+    if (!name?.trim()) return;
+    try {
+      const sf = await createSmartFeed(name.trim(), '', adhocFeedIds);
+      smartFeeds = [...smartFeeds, sf].sort((a, b) => a.name.localeCompare(b.name));
+      activeSmartFeed = sf.id;
+      adhocFeedIds = [];
+      feedPickerOpen = false;
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Could not save custom feed';
+    }
   }
 
   $effect(() => {
@@ -90,7 +108,7 @@
     void lang;
     void activeCategory;
     void activeSmartFeed;
-    void activeFeed;
+    void adhocFeedIds;
     load();
   });
 
@@ -132,7 +150,7 @@
     <div class="mb-5 flex flex-wrap items-center gap-2">
       <button
         class="surface px-3 py-1.5 text-sm"
-        style={activeCategory === '' && activeSmartFeed === '' && activeFeed === ''
+        style={activeCategory === '' && activeSmartFeed === '' && adhocFeedIds.length === 0
           ? 'outline: 2px solid var(--accent);'
           : ''}
         onclick={() => selectCategory('')}>{$t('home.all')}</button
@@ -151,14 +169,29 @@
           onclick={() => selectSmartFeed(sf.id)}>🔍 {sf.name}</button
         >
       {/each}
-      {#each feeds as feed (feed.id)}
+      {#if feeds.length > 0}
         <button
           class="surface px-3 py-1.5 text-sm"
-          style={activeFeed === feed.id ? 'outline: 2px solid var(--accent);' : ''}
-          onclick={() => selectFeed(feed.id)}>{feed.title ?? feed.url}</button
+          style={adhocFeedIds.length > 0 ? 'outline: 2px solid var(--accent);' : ''}
+          onclick={openFeedPicker}>{$t('home.feeds')} ▾{adhocFeedIds.length ? ` ${adhocFeedIds.length}` : ''}</button
         >
-      {/each}
+      {/if}
     </div>
+    {#if feedPickerOpen}
+      <div class="mb-5 max-w-md">
+        <FeedPicker feeds={feeds} bind:selectedIds={adhocFeedIds} />
+        <div class="mt-2 flex items-center gap-2">
+          <button
+            class="btn-accent px-3 py-1.5 text-sm disabled:opacity-60"
+            disabled={adhocFeedIds.length === 0}
+            onclick={saveAdhocFeed}>{$t('home.saveAsFeed')}</button
+          >
+          {#if adhocFeedIds.length > 0}
+            <button class="surface px-3 py-1.5 text-sm" onclick={() => (adhocFeedIds = [])}>{$t('home.all')}</button>
+          {/if}
+        </div>
+      </div>
+    {/if}
   {/if}
 {:else}
   <div class="mb-5 flex items-center gap-2 text-sm">

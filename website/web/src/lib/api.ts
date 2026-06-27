@@ -22,6 +22,7 @@ export type Feed = {
   id: string;
   url: string;
   title: string | null;
+  custom_title: string | null;
   description: string | null;
   language: string;
   category_id: string | null;
@@ -38,7 +39,7 @@ export type SmartFeed = {
   id: string;
   name: string;
   query: string;
-  feed_id: string | null;
+  feed_ids: string[];
   created_at: string;
 };
 
@@ -49,6 +50,7 @@ export function listArticles(
     category?: string;
     smartFeed?: string;
     feedId?: string;
+    feeds?: string[];
     limit?: number;
     offset?: number;
   } = {},
@@ -59,6 +61,7 @@ export function listArticles(
   if (opts.category) q.set('category', opts.category);
   if (opts.smartFeed) q.set('smartFeed', opts.smartFeed);
   if (opts.feedId) q.set('feed', opts.feedId);
+  if (opts.feeds?.length) q.set('feeds', opts.feeds.join(','));
   q.set('limit', String(opts.limit ?? 30));
   q.set('offset', String(opts.offset ?? 0));
   return getJSON<Article[]>(`/api/articles?${q}`);
@@ -103,11 +106,15 @@ export function setFeedCategory(
   return send('PATCH', `/api/feeds/${feedId}/category`, { category_id: categoryId });
 }
 
+export function renameFeed(id: string, title: string): Promise<{ status: string }> {
+  return send('PATCH', `/api/feeds/${id}/title`, { title });
+}
+
 export type Statistics = {
   users: number;
   feeds: number;
   articles: number;
-  topFeeds: { title: string | null; url: string; articleCount: number }[];
+  topFeeds: { title: string | null; custom_title?: string | null; url: string; articleCount: number }[];
 };
 
 export function getStatistics(): Promise<Statistics> {
@@ -121,9 +128,9 @@ export function listSmartFeeds(): Promise<SmartFeed[]> {
 export function createSmartFeed(
   name: string,
   query: string,
-  feedId: string | null,
+  feedIds: string[],
 ): Promise<SmartFeed> {
-  return send<SmartFeed>('POST', '/api/smart-feeds', { name, query, feed_id: feedId });
+  return send<SmartFeed>('POST', '/api/smart-feeds', { name, query, feed_ids: feedIds });
 }
 
 export function deleteSmartFeed(id: string): Promise<{ status: string }> {

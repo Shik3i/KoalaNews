@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getStatistics, type Statistics } from '$lib/api';
+  import { feedLabel } from '$lib/feeds';
   import { t } from '$lib/i18n';
 
   let stats = $state<Statistics | null>(null);
@@ -56,7 +57,7 @@
           <div class="flex items-center gap-3 min-w-0">
             <span class="text-muted text-sm w-6 shrink-0">#{i + 1}</span>
             <div class="min-w-0">
-              <p class="truncate font-medium">{feed.title ?? feed.url}</p>
+              <p class="truncate font-medium">{feedLabel(feed)}</p>
               <p class="truncate text-xs text-muted">{feed.url}</p>
             </div>
           </div>
