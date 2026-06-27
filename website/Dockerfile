@@ -28,7 +28,7 @@ COPY --from=build /out/koalanews /app/koalanews
 COPY --from=build --chown=nonroot:nonroot /data /data
 EXPOSE 3000
 ENV ADDR=":3000" \
-    DATABASE_URL="file:/data/koalanews.db" \
+    DATABASE_URL="file:/data/koalanews-v2.db" \
     SYNC_INTERVAL="15m"
 VOLUME ["/data"]
 USER nonroot:nonroot

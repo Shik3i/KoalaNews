@@ -19,7 +19,7 @@ services:
       - "3000"
     environment:
       - ADDR=:3000
-      - DATABASE_URL=file:/data/koalanews.db
+      - DATABASE_URL=file:/data/koalanews-v2.db
       - SYNC_INTERVAL=${SYNC_INTERVAL:-15m}
       - SESSION_KEY=${SESSION_KEY:?set a random SESSION_KEY in .env}
     volumes:

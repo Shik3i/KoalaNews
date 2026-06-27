@@ -99,18 +99,18 @@ docker run -d \
   -p 3000:3000 \
   -v /pfad/zu/data:/data \
   -e SESSION_KEY="$(openssl rand -base64 32)" \
-  -e DATABASE_URL="file:/data/koalanews.db" \
+  -e DATABASE_URL="file:/data/koalanews-v2.db" \
   -e SYNC_INTERVAL="15m" \
   ghcr.io/dein-user/KoalaNews/koalanews-website:latest
 ```
 
-Die SQLite-Datenbank liegt unter `/data/koalanews.db`; GFS-Backups liegen unter `/data/backup`.
+Die SQLite-Datenbank liegt unter `/data/koalanews-v2.db`; GFS-Backups liegen unter `/data/backup`. Der Dateiname ist absichtlich anders als im Legacy-Container, damit ein bestehendes `/data/koalanews.db` auf einer Alpha-VPS nicht gelöscht oder überschrieben werden muss.
 
 ## Umgebungsvariablen
 
 | Variable          | Beschreibung                  | Beispiel                          |
 | ----------------- | ----------------------------- | --------------------------------- |
-| `DATABASE_URL`    | Pfad zur SQLite-Datenbank     | `file:/data/koalanews.db`         |
+| `DATABASE_URL`    | Pfad zur SQLite-Datenbank     | `file:/data/koalanews-v2.db`      |
 | `SESSION_KEY`     | Secret für Session-Cookies    | `openssl rand -base64 32`         |
 | `ADDR`            | Listen-Adresse                | `:3000`                           |
 | `SYNC_INTERVAL`   | RSS-Sync-Intervall            | `15m`                             |

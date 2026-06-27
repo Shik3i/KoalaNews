@@ -15,7 +15,7 @@ type Config struct {
 func Load() Config {
 	return Config{
 		Addr:         env("ADDR", ":3000"),
-		DatabaseURL:  env("DATABASE_URL", "file:./koalanews.db"),
+		DatabaseURL:  env("DATABASE_URL", "file:./koalanews-v2.db"),
 		SyncInterval: envDuration("SYNC_INTERVAL", 15*time.Minute),
 		SessionKey:   env("SESSION_KEY", "dev-insecure-session-key-change-me"),
 	}

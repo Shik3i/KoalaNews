@@ -92,7 +92,7 @@ docker logs koalanews-test  # Logs ansehen
 ### SQLite-Datenbank zurücksetzen
 
 ```bash
-rm -f website/koalanews.db
+rm -f website/koalanews-v2.db
 go run ./cmd/koalanews
 ```
 

@@ -46,7 +46,7 @@ Status: **Bereit für Alpha-Cutover** — volle Feature-Parität, CI grün, Reve
 - [x] **Cutover-Setup (Reverse-Proxy)** — Root-`docker-compose.yml` startet den neuen `koalanews`-Service hinter `caddy:2-alpine` auf Port 80. `website_legacy/` ist deprecated/reference-only und wird im Default-Stack nicht mehr gestartet. Root-`.env.example` enthält nur noch die neuen Stack-Secrets. **Verifiziert:** Compose-Konfiguration + Docker-Build + Container-Smoke gegen die neue App.
 
 ### Als Nächstes
-Volle Feature-Parität laut Scope-Entscheidung erreicht (Auth, Dashboard, Appearance, Admin, Read-State, OPML, Kategorien, Custom-Feeds, Statistiken, i18n, Backups). CI-Pipeline und Cutover-Setup stehen. **Migration ist bereit für den Alpha-Cutover** — verbleibend ist nur noch der eigentliche Schnitt auf eine frische Datenbank und das Entfernen von `website_legacy`, sobald der neue Stack stabil läuft.
+Volle Feature-Parität laut Scope-Entscheidung erreicht (Auth, Dashboard, Appearance, Admin, Read-State, OPML, Kategorien, Custom-Feeds, Statistiken, i18n, Backups). CI-Pipeline und Cutover-Setup stehen. **Migration ist bereit für den Alpha-Cutover** — verbleibend ist nur noch der eigentliche Schnitt auf eine frische Datenbank (`koalanews-v2.db`, absichtlich getrennt von Legacy-`koalanews.db`) und das Entfernen von `website_legacy`, sobald der neue Stack stabil läuft.
 - [x] **Phase 4** — restliche API-Routes: feeds CRUD, categories, smart-feeds, statistics, admin (users/settings/backups), read-state, OPML.
 - [x] **Phase 5 (Rest)** — Seiten: login/register, dashboard (Feeds verwalten), settings, statistics, admin. i18n (de/en/fr).
 - [x] **Phase 6** — GFS-Backups (CLI-äquivalent via Admin-Endpoint).
@@ -103,7 +103,7 @@ Das Frontend ist statisch *gebaut*, aber das Backend läuft permanent und macht 
     Dockerfile
     sqlc.yaml
   ```
-- [x] DB-Strategie festgelegt: **frische SQLite-Datei für den neuen Alpha-Stack**. `website_legacy/` bleibt deprecated/reference-only; bestehende Legacy-Nutzer, Feeds, Artikel und Pepper werden nicht übernommen.
+- [x] DB-Strategie festgelegt: **frische SQLite-Datei für den neuen Alpha-Stack** (`koalanews-v2.db`). `website_legacy/` bleibt deprecated/reference-only; bestehende Legacy-Nutzer, Feeds, Artikel und Pepper werden nicht übernommen.
 
 ## Phase 1 — Go-Fundament + DB
 
@@ -161,7 +161,7 @@ Referenz: `website_legacy/scripts/backup.mjs`, `src/lib/database-backups.ts`
 ## Phase 7 — Docker + Cutover
 
 - [x] Multi-stage Dockerfile: `node` baut Svelte → `golang` baut Binary (CGO_ENABLED=0) → `distroless:static-debian12:nonroot`. **25,3 MB** erreicht.
-- [x] `docker-compose.yml`: gleiche Volume-Mounts (`/data`), gleiche `DATABASE_URL`-Semantik (file path) — pro App ein eigenes Volume, da unterschiedliche DB-Dateinamen (`koalanews.db` vs. `dev.db`).
+- [x] `docker-compose.yml`: `/data`-Volume mit neuer Datenbankdatei `koalanews-v2.db`, sodass eventuell vorhandene Legacy-Dateien (`koalanews.db`/`dev.db`) unberührt bleiben.
 - [x] Caddy-Reverse-Proxy vor dem neuen Go+SvelteKit-Service; `website_legacy` bleibt nur als deprecated Referenz im Repo.
 - [x] CI (`.github/workflows`): Go test/vet/build + Svelte build statt npm-only.
 
