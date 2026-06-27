@@ -3,8 +3,5 @@
 }
 
 :80 {
-	# Cutover switch: point at koalanews_legacy:3000 to roll back instantly.
-	# After editing, apply with:
-	#   docker compose exec proxy caddy reload --config /etc/caddy/Caddyfile
 	reverse_proxy koalanews:3000
 }

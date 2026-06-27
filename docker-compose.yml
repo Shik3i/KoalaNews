@@ -1,8 +1,5 @@
-# Cutover setup: both apps run side by side, Caddy decides which one is live.
-# Flip traffic by editing Caddyfile's `reverse_proxy` target and running
-# `docker compose exec proxy caddy reload --config /etc/caddy/Caddyfile`.
-# website_legacy stays up as an instant fallback; remove it 1-2 releases
-# after a clean cutover.
+# Production-style stack for the Go + SvelteKit rewrite.
+# website_legacy is deprecated/reference-only and is not started here.
 
 services:
   proxy:
@@ -14,7 +11,6 @@ services:
       - caddy_data:/data
     depends_on:
       - koalanews
-      - koalanews_legacy
     restart: unless-stopped
 
   koalanews:
@@ -30,24 +26,6 @@ services:
       - koalanews_data:/data
     restart: unless-stopped
 
-  koalanews_legacy:
-    build: ./website_legacy
-    expose:
-      - "3000"
-    environment:
-      - DATABASE_URL=file:/data/dev.db
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?set a random NEXTAUTH_SECRET in .env}
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost}
-      - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
-      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@koalanews.local}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
-    volumes:
-      - koalanews_legacy_data:/data
-    restart: unless-stopped
-
 volumes:
   koalanews_data:
-  koalanews_legacy_data:
   caddy_data:

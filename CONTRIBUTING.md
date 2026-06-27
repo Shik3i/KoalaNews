@@ -3,12 +3,16 @@
 ## Dev Setup
 
 ```bash
-cd website
-cp .env.example .env
+cd website/web
 npm install
-npx prisma migrate deploy
-npx prisma generate
 npm run dev
+```
+
+In einem zweiten Terminal:
+
+```bash
+cd website
+go run ./cmd/koalanews
 ```
 
 ## Before Every Commit
@@ -16,16 +20,15 @@ npm run dev
 Der Pre-Commit-Hook (`husky`) führt automatisch aus:
 
 ```bash
-npx lint-staged
-# → ESLint --fix + Prettier --write für staged Dateien
+(cd website/web && npm run check)
+(cd website && go vet ./...)
 ```
 
 Bitte vor dem Pushen manuell prüfen:
 
 ```bash
-npx next lint          # ESLint
-npx tsc --noEmit       # TypeScript Check
-npx vitest run         # Tests
+(cd website/web && npm run check && npm run build)
+(cd website && go vet ./... && go test ./...)
 ```
 
 ## Commit Conventions
@@ -63,52 +66,47 @@ Beispiele: `feat: add feed refresh button`, `fix: handle empty RSS feeds`
 -   **Unused variables** vermeiden (ESLint warnt).
 -   **Prettier** formatiert automatisch – nutze `npm run format`.
 
-### Komponenten
+### Frontend
 
--   Server Components bevorzugen, Client Components nur wo nötig (`'use client'`).
--   Props immer explizit typen, nie `any`.
--   i18n Übersetzungen in `src/messages/{locale}.json` pflegen, nicht hardcoded.
+-   Svelte-Props immer explizit typen, nie `any`.
+-   i18n Übersetzungen in `website/web/src/lib/messages.ts` pflegen, nicht hardcoded.
 -   Keine clientseitigen Third-Party-Requests: keine externen CDNs, Google Fonts, Remote-Images, Tracking-Scripts, Widgets oder Font-/Icon-CDNs. Browser-Assets müssen lokal/self-hosted sein.
 -   Externe Links sind okay als Navigation zu Artikeln, aber keine eingebetteten externen Ressourcen im UI.
 
-### API Routes
+### API
 
--   Jede Route authentifizieren via `getServerSession(authOptions)`.
+-   Authentifizierte Endpoints über die Go-Middleware schützen.
 -   Fehler mit eindeutigem HTTP-Status und JSON-Body zurückgeben.
 -   Externe Netzwerkzugriffe gehören nicht in den Client. RSS-Abrufe laufen ausschließlich serverseitig, SSRF-geschützt, rate-limited und idealerweise über einen kontrollierten Cronjob/Refresh-Prozess.
--   Wiederkehrende Cleanup-Jobs laufen serverseitig über `npm run cleanup`; Retention wird über `KOALANEWS_RETENTION_DAYS` gesteuert.
 
 ### Datenbank
 
--   Schema-Änderungen via Prisma-Migrationen einchecken; lokal mit `npx prisma migrate dev`, Produktion mit `npx prisma migrate deploy`.
--   Keine rohen SQL-Queries – immer Prisma Client.
+-   Schema-Änderungen in `website/internal/db/schema.sql` und passende Queries in `queries.sql` pflegen.
+-   Nach Query-Änderungen `sqlc generate` ausführen.
+-   Für dynamische SQL-Formen nur bewusst handgeschriebene Queries verwenden und kommentieren.
 -   RSS-Quellen werden als globale `SourceFeed`s dedupliziert; User-Feeds sind Subscriptions. Artikel hängen an `SourceFeed`, damit derselbe Feed nicht mehrfach gespeichert wird.
--   RSS-Artikel und gecachte Bilder werden in SQLite gespeichert und per Retention-Cleanup gelöscht.
+-   RSS-Artikel und gecachte Bilder werden in SQLite gespeichert.
 
 ### Tests
 
--   Tests liegen neben der zu testenden Datei: `Component.test.tsx`.
--   Mock-Dateien liegen in `__mocks__/` im Projekt-Root.
--   Neue Features brauchen Tests – Coverage soll steigen, nicht fallen.
+-   Go-Tests liegen neben dem Paket (`*_test.go`).
+-   Riskante Frontend-Änderungen mindestens mit `npm run check` und Browser-Smoke prüfen.
 
 ### i18n
 
--   Sprachdateien in `src/messages/` nach ISO-Code benennen: `de.json`, `en.json`.
--   Neue Sprache: `routing.ts` erweitern + Datei anlegen.
--   In Komponenten `useTranslations('namespace')` nutzen.
+-   Messages in `website/web/src/lib/messages.ts` pflegen.
+-   In Komponenten den `$t(...)` Store aus `$lib/i18n` nutzen.
 
 ### Docker
 
--   Image läuft als `nextjs` User (non-root).
+-   Image läuft als distroless `nonroot`.
 -   SQLite unter `/data/koalanews.db` – via Volume persistieren.
--   `NEXTAUTH_SECRET` und `DATABASE_URL` immer als Env-Vars setzen.
--   `KOALANEWS_RETENTION_DAYS` dokumentiert setzen; Default ist `14`.
+-   `SESSION_KEY` und `DATABASE_URL` immer als Env-Vars setzen.
 
 ## CI/CD
 
--   Auf jeden PR & Push zu `main`: **Tests → Lint → Typecheck → Docker Build**
--   Coverage-Reports als Build-Artifact.
--   Nur wenn Tests grün sind, wird das Image gebaut & gepusht.
+-   Auf jeden PR & Push: **Svelte check/build → Go vet/test/build**.
+-   Docker Build & Push laufen für `v*`-Tags oder manuell per `workflow_dispatch`.
 
 ## Fragen?
 

@@ -8,7 +8,8 @@
 
 ```
 KoalaNews/
-├── website/          # Next.js RSS-Reader (Web-App)
+├── website/          # Go API + eingebettete SvelteKit-Web-App
+├── website_legacy/   # deprecated Next.js-Referenz, nicht mehr aktiv
 ├── app/              # Mobile App (geplant)
 └── .github/workflows # CI/CD Pipeline
 ```
@@ -30,13 +31,14 @@ KoalaNews/
 
 | Bereich         | Technologie                              |
 | --------------- | ---------------------------------------- |
-| Framework       | Next.js 15 (App Router)                  |
-| Sprache         | TypeScript                               |
+| Backend         | Go + chi                                 |
+| Frontend        | SvelteKit 5 + adapter-static             |
+| Sprache         | Go, TypeScript                           |
 | Styling         | Tailwind CSS                             |
-| Datenbank       | SQLite via Prisma                        |
-| Authentifizierung | NextAuth.js (Credentials)              |
-| RSS-Parsing     | rss-parser                               |
-| Internationalisierung | next-intl (DE + EN + FR)         |
+| Datenbank       | SQLite via sqlc + modernc.org/sqlite     |
+| Authentifizierung | HttpOnly Sessions + bcrypt             |
+| RSS-Parsing     | gofeed + SSRF-geschützter HTTP-Client    |
+| Internationalisierung | eigener Svelte Store (DE + EN + FR) |
 | Container       | Docker (Multi-Stage)                     |
 | CI/CD           | GitHub Actions → ghcr.io                 |
 
@@ -46,16 +48,21 @@ KoalaNews/
 
 -   Node.js 20+
 -   npm
+-   Go 1.26+
 
 ### Setup
 
 ```bash
-cd website
-cp .env.example .env
+cd website/web
 npm install
-npx prisma migrate deploy
-npx prisma generate
 npm run dev
+```
+
+In einem zweiten Terminal:
+
+```bash
+cd website
+go run ./cmd/koalanews
 ```
 
 Die App läuft unter [http://localhost:3000](http://localhost:3000).
@@ -63,7 +70,7 @@ Die App läuft unter [http://localhost:3000](http://localhost:3000).
 ### Docker lokal
 
 ```bash
-cd website
+cp .env.example .env
 docker compose up --build
 ```
 
@@ -71,39 +78,13 @@ Die Datenbank wird in einem Docker-Volume (`koalanews_data`) persistiert.
 
 ### Cleanup / Retention
 
-KoalaNews speichert RSS-Artikel und gecachte Bilder lokal in SQLite. Alte Daten werden per Cleanup-Script entfernt:
-
-```bash
-cd website
-KOALANEWS_RETENTION_DAYS=14 npm run cleanup
-```
-
-`KOALANEWS_RETENTION_DAYS` defaultet auf `14`. Das Script loescht:
-
-- Artikel mit `pubDate` oder `createdAt` aelter als Retention
-- gecachte Bilder in `ImageCache` aelter als Retention
-- abgelaufene Passwort-Reset-Tokens
-- abgelaufene Rate-Limit-Eintraege
-- verwaiste `SourceFeed`s ohne Subscriptions und Artikel
-
-Die App startet den Cleanup außerdem automatisch opportunistisch bei Feed-Hinzufügen/Refresh. `KOALANEWS_CLEANUP_INTERVAL_HOURS` begrenzt diese Auto-Cleanup-Läufe, Default ist `24`. Für harte Betriebsfenster kann zusätzlich ein Host-Cron, systemd timer oder Orchestrator-Schedule `npm run cleanup` ausführen.
+KoalaNews speichert RSS-Artikel und gecachte Bilder lokal in SQLite. Feeds werden vom Go-Sync-Worker regelmäßig aktualisiert; `SYNC_INTERVAL` steuert den Abstand.
 
 ### Backups
 
 KoalaNews legt Grandfather/Father/Son-Backups im `backup/` Ordner neben der SQLite-Datenbank an. Artikel, Lesestatus und Bildcache werden aus der Backup-Kopie entfernt, weil diese Daten jederzeit aus den RSS-Feeds neu geladen werden können.
 
-```bash
-cd website
-npm run backup
-```
-
-Im Docker-Container kann ein täglicher Host-Cron so aussehen:
-
-```cron
-15 3 * * * docker exec koalanews node backup.mjs
-```
-
-Die Admin-Seite zeigt Datenbankgröße, Backup-Liste, Download-Links und Restore-Befehle. Vor einem Restore immer zuerst den Container stoppen.
+Backups können über die Admin-Seite erstellt und heruntergeladen werden. Vor einem Restore immer zuerst den Container stoppen.
 
 ## Deployment
 
@@ -117,9 +98,9 @@ docker run -d \
   --name koalanews \
   -p 3000:3000 \
   -v /pfad/zu/data:/data \
-  -e NEXTAUTH_SECRET="geheimes-salt" \
-  -e NEXTAUTH_URL="https://deine-domain.de" \
-  -e KOALANEWS_RETENTION_DAYS="14" \
+  -e SESSION_KEY="$(openssl rand -base64 32)" \
+  -e DATABASE_URL="file:/data/koalanews.db" \
+  -e SYNC_INTERVAL="15m" \
   ghcr.io/dein-user/KoalaNews/koalanews-website:latest
 ```
 
@@ -130,21 +111,14 @@ Die SQLite-Datenbank liegt unter `/data/koalanews.db`; GFS-Backups liegen unter 
 | Variable          | Beschreibung                  | Beispiel                          |
 | ----------------- | ----------------------------- | --------------------------------- |
 | `DATABASE_URL`    | Pfad zur SQLite-Datenbank     | `file:/data/koalanews.db`         |
-| `NEXTAUTH_SECRET` | Secrets für JWT-Tokens        | `openssl rand -base64 32`         |
-| `NEXTAUTH_URL`    | Öffentliche URL der Anwendung | `https://koalanews.example.com`   |
-| `ALLOW_REGISTRATION` | Registrierung erlauben | `true` |
-| `ADMIN_EMAIL` | Optionaler initialer Admin | `admin@example.com` |
-| `ADMIN_PASSWORD` | Passwort fuer initialen Admin | `change-me` |
-| `GOOGLE_CLIENT_ID` | Optional; wenn leer, wird Google OAuth ausgeblendet | leer |
-| `GOOGLE_CLIENT_SECRET` | Optional; wenn leer, wird Google OAuth ausgeblendet | leer |
-| `KOALANEWS_RETENTION_DAYS` | Retention fuer Artikel/Bildcache in Tagen | `14` |
-| `KOALANEWS_CLEANUP_INTERVAL_HOURS` | Mindestabstand fuer Auto-Cleanup-Läufe | `24` |
+| `SESSION_KEY`     | Secret für Session-Cookies    | `openssl rand -base64 32`         |
+| `ADDR`            | Listen-Adresse                | `:3000`                           |
+| `SYNC_INTERVAL`   | RSS-Sync-Intervall            | `15m`                             |
 
 ## Caddy Reverse Proxy
 
 KoalaNews ist für Betrieb hinter Caddy gedacht. Wichtig:
 
-- `NEXTAUTH_URL` muss auf die öffentliche HTTPS-URL zeigen.
 - Die App sollte nur intern erreichbar sein, z.B. Caddy auf `localhost:3000` oder ein internes Docker-Netz.
 - Caddy sollte den originalen `Host` weiterreichen (Default bei `reverse_proxy`).
 - TLS endet bei Caddy; KoalaNews setzt zusätzlich Security-Header inklusive HSTS.
@@ -163,18 +137,17 @@ koalanews.example.com {
 KoalaNews laedt im Browser keine externen CDNs, Google Fonts, Remote-Images oder Third-Party-Widgets. Alle Client-Assets muessen lokal/self-hosted sein. Die regulaeren externen Verbindungen sind serverseitig:
 
 - RSS-Fetching fuer abonnierte Feeds
-- optionaler OAuth-Provider, nur wenn explizit konfiguriert
 
 Artikelbilder aus RSS-Feeds werden nicht direkt im Browser von Drittservern geladen. Stattdessen ruft `/api/image` die Quelle serverseitig SSRF-geschuetzt ab, speichert sie in SQLite (`ImageCache`) und liefert sie von der eigenen App-Origin aus.
 
 ## Internationalisierung
 
-Sprachen werden in `website/src/messages/{locale}.json` gepflegt.
+Sprachen werden in `website/web/src/lib/messages.ts` gepflegt.
 Eine neue Sprache hinzufügen:
 
-1.  `website/src/messages/fr.json` anlegen
-2.  `fr` in `website/src/i18n/routing.ts` in `locales` eintragen
-3.  Fertig – die Sprache erscheint automatisch im Language-Switcher.
+1.  Locale in `LOCALES` ergänzen
+2.  Nachrichten im `messages`-Objekt ergänzen
+3.  Label in `LOCALE_LABELS` eintragen
 
 ## Richtlinien
 

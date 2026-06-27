@@ -1,5 +1,10 @@
 #!/bin/sh
 export PATH="/opt/homebrew/bin:$PATH"
 
-cd website
-npm run validate
+build_index_dirty=0
+git diff --quiet -- website/web/build/index.html || build_index_dirty=1
+(cd website/web && npm run check && npm run build) || exit 1
+if [ "$build_index_dirty" -eq 0 ]; then
+  git checkout -- website/web/build/index.html 2>/dev/null || true
+fi
+(cd website && go vet ./... && go test ./...) || exit 1

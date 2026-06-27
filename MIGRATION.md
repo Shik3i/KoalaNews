@@ -1,6 +1,6 @@
 # KoalaNews — Migration Plan: Next.js → Go + SvelteKit (Strangler Fig)
 
-Status: **Bereit für Cutover** — volle Feature-Parität, CI grün, Reverse-Proxy-Umschaltung getestet. Es fehlt nur noch der eigentliche Produktions-Schnitt.
+Status: **Bereit für Alpha-Cutover** — volle Feature-Parität, CI grün, Reverse-Proxy-Umschaltung getestet. Legacy ist deprecated; es werden keine Nutzer- oder Inhaltsdaten übernommen.
 
 ## Fortschritt
 
@@ -43,14 +43,14 @@ Status: **Bereit für Cutover** — volle Feature-Parität, CI grün, Reverse-Pr
 
 - [x] **CI-Pipeline** — `.github/workflows/ci.yml` + `docker-build.yml` waren noch auf dem alten npm/Prisma-Next.js-Stack stehengeblieben (liefen gegen ein nicht mehr existierendes `package-lock.json`/`prisma`-Setup). Umgestellt auf den neuen Stack: `ci.yml` zweistufig — `frontend` (Svelte-Check + `vite build` in `website/web`, Artifact-Upload) → `backend` (Go vet/test/build in `website`, lädt den Frontend-Build als Artifact für `go:embed`-Parität). `docker-build.yml`s `test`-Job ebenso auf `go vet`/`go test` umgestellt (Docker-Build-Job selbst unverändert, baut intern bereits Node→Go im Dockerfile). **Verifiziert:** `go vet`/`go test ./...` lokal grün, `npm run check`/`npm run build` in `web/` grün, `docker build` + Container-Smoke-Test (`/api/health` → 200, RSS-Sync läuft an) erfolgreich, beide YAMLs syntaktisch validiert.
 
-- [x] **Cutover-Setup (Reverse-Proxy)** — Root-`docker-compose.yml`: `koalanews` (neu) + `koalanews_legacy` (alt) laufen parallel, jeweils eigenes `/data`-Volume, dahinter ein `caddy:2-alpine`-Proxy auf Port 80. Umschalten = `Caddyfile`-Zeile (`reverse_proxy koalanews:3000` ↔ `koalanews_legacy:3000`) ändern + `docker compose exec proxy caddy reload --config /etc/caddy/Caddyfile` (kein Container-Restart, kein Downtime). Root-`.env.example` für beide Stacks' Secrets. **Verifiziert:** `docker compose up` (beide Apps + Proxy), `curl localhost/api/health` → neue App; Caddyfile umgeschrieben + reload → Legacy-App (200 auf `/`); zurückgeschwenkt → wieder neue App, alles ohne Downtime.
+- [x] **Cutover-Setup (Reverse-Proxy)** — Root-`docker-compose.yml` startet den neuen `koalanews`-Service hinter `caddy:2-alpine` auf Port 80. `website_legacy/` ist deprecated/reference-only und wird im Default-Stack nicht mehr gestartet. Root-`.env.example` enthält nur noch die neuen Stack-Secrets. **Verifiziert:** Compose-Konfiguration + Docker-Build + Container-Smoke gegen die neue App.
 
 ### Als Nächstes
-Volle Feature-Parität laut Scope-Entscheidung erreicht (Auth, Dashboard, Appearance, Admin, Read-State, OPML, Kategorien, Smart-Feeds, Statistiken, i18n, Backups). CI-Pipeline und Cutover-Setup stehen. **Migration ist bereit für den Produktions-Cutover** — verbleibend ist nur noch der eigentliche Schnitt (echte Daten von `website_legacy` zu `website` migrieren bzw. weiterverwenden, da gleiches SQLite-Schema, dann Proxy umschalten) und das Entfernen von `website_legacy` nach 1–2 stabilen Releases.
+Volle Feature-Parität laut Scope-Entscheidung erreicht (Auth, Dashboard, Appearance, Admin, Read-State, OPML, Kategorien, Custom-Feeds, Statistiken, i18n, Backups). CI-Pipeline und Cutover-Setup stehen. **Migration ist bereit für den Alpha-Cutover** — verbleibend ist nur noch der eigentliche Schnitt auf eine frische Datenbank und das Entfernen von `website_legacy`, sobald der neue Stack stabil läuft.
 - [x] **Phase 4** — restliche API-Routes: feeds CRUD, categories, smart-feeds, statistics, admin (users/settings/backups), read-state, OPML.
 - [x] **Phase 5 (Rest)** — Seiten: login/register, dashboard (Feeds verwalten), settings, statistics, admin. i18n (de/en/fr).
 - [x] **Phase 6** — GFS-Backups (CLI-äquivalent via Admin-Endpoint).
-- [x] **Phase 7** — Cutover via Reverse-Proxy (Parallelbetrieb legacy/neu, schrittweises Umrouten via Caddy).
+- [x] **Phase 7** — Cutover via Caddy-Reverse-Proxy auf den neuen Go+SvelteKit-Service.
 
 ---
 
@@ -103,7 +103,7 @@ Das Frontend ist statisch *gebaut*, aber das Backend läuft permanent und macht 
     Dockerfile
     sqlc.yaml
   ```
-- [ ] DB-Strategie festlegen: **gleiche SQLite-Datei & gleiches Schema weiterverwenden** (`/data/koalanews.db`). Prisma-Migrations-SQL aus `website_legacy/prisma/migrations` als initiales `schema.sql` übernehmen → bestehende Daten (User, Pepper, Feeds) bleiben nutzbar. Kein Datenmigrations-Skript nötig.
+- [x] DB-Strategie festgelegt: **frische SQLite-Datei für den neuen Alpha-Stack**. `website_legacy/` bleibt deprecated/reference-only; bestehende Legacy-Nutzer, Feeds, Artikel und Pepper werden nicht übernommen.
 
 ## Phase 1 — Go-Fundament + DB
 
@@ -162,14 +162,14 @@ Referenz: `website_legacy/scripts/backup.mjs`, `src/lib/database-backups.ts`
 
 - [x] Multi-stage Dockerfile: `node` baut Svelte → `golang` baut Binary (CGO_ENABLED=0) → `distroless:static-debian12:nonroot`. **25,3 MB** erreicht.
 - [x] `docker-compose.yml`: gleiche Volume-Mounts (`/data`), gleiche `DATABASE_URL`-Semantik (file path) — pro App ein eigenes Volume, da unterschiedliche DB-Dateinamen (`koalanews.db` vs. `dev.db`).
-- [x] Parallelbetrieb: legacy + neu im selben Compose-Stack, Caddy-Reverse-Proxy schaltet per `Caddyfile`-Edit + `caddy reload` zwischen ihnen um (kein Downtime). `website_legacy` bleibt 1–2 Releases als Fallback.
+- [x] Caddy-Reverse-Proxy vor dem neuen Go+SvelteKit-Service; `website_legacy` bleibt nur als deprecated Referenz im Repo.
 - [x] CI (`.github/workflows`): Go test/vet/build + Svelte build statt npm-only.
 
 ---
 
 ## Risiken / offene Punkte
 
-- **Pepper-Übernahme** ist der gefährlichste Schritt — vor Cutover mit echtem Login gegen Prod-DB-Kopie testen.
+- **Kein Legacy-Datencrossover** — neuer Alpha-Stack startet mit frischer SQLite-Datei; Pepper-/Login-Übernahme entfällt.
 - **cuid-ID-Kompatibilität** mit bestehenden FK-Strings verifizieren.
 - **Google OAuth** — bestätigen ob überhaupt im Einsatz; sonst aus MVP streichen.
 - **SSRF-Tests** portieren (`rss.test.ts`) — private IPs müssen weiter geblockt werden.

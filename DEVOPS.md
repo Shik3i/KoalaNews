@@ -5,21 +5,18 @@
 Pflichtprogramm, das **immer** vor `git push` durchlaufen muss:
 
 ```bash
-# 1. TypeScript prüfen
-cd website
-npx tsc --noEmit
+# 1. Frontend prüfen und bauen
+cd website/web
+npm run check
+npm run build
 
-# 2. ESLint
-npx next lint
-
-# 3. Alle Tests
-npx vitest run
-
-# 4. Build
-npx next build
+# 2. Backend prüfen und testen
+cd ..
+go vet ./...
+go test ./...
 ```
 
-Erst wenn alle vier Schritte grün sind, darf gepusht werden.
+Erst wenn alle Schritte grün sind, darf gepusht werden.
 
 ## Vor einem Tag (Release)
 
@@ -30,17 +27,14 @@ Vor `git tag` und `git push --tags` läuft eine erweiterte Routine:
 
 ```bash
 # 1. Lokalen Build und Tests (siehe oben)
-cd website
-npm run typecheck && npm run lint && npm run test:run && npm run build
+cd website/web && npm run check && npm run build
+cd .. && go vet ./... && go test ./...
 
 # 2. Docker-Image lokal bauen
-docker build -t koalanews-website:test .
-
-# 3. Integrationstests mit Live-Container
-../scripts/test-integration.sh
-
-# 4. Wenn alles grün: Tag setzen
 cd ..
+docker build -t koalanews-website:test website
+
+# 3. Wenn alles grün: Tag setzen
 git tag v1.2.3
 git push origin main
 git push origin v1.2.3
@@ -48,17 +42,7 @@ git push origin v1.2.3
 
 ### Integrationstests
 
-Das Script `scripts/test-integration.sh` macht folgendes:
-
-1. Startet einen Docker-Container mit einer frischen SQLite-Datenbank
-2. Wartet bis der Server bereit ist (Healthcheck)
-3. Führt API-Tests per `curl` durch
-4. Stoppt den Container wieder
-
-```bash
-# Manuell ausführen
-../scripts/test-integration.sh
-```
+Für einen manuellen Smoke-Test: Container mit frischer SQLite-Datenbank starten, `/api/health` prüfen, User registrieren, Feed hinzufügen und Home/Dashboard im Browser öffnen.
 
 ### Was beim Tag-Push passiert
 
@@ -66,7 +50,7 @@ Der Push eines `v*`-Tags löst GitHub Actions aus:
 
 ```
 v1.2.3 pushed
-  → CI: Tests (Lint + Typecheck + Unit Tests)
+  → CI: Go vet/test
   → CI: Docker Build & Push zu ghcr.io
   → Image: ghcr.io/shik3i/koalanews/koalanews-website:1.2.3
   → Image: ghcr.io/shik3i/koalanews/koalanews-website:1.2
@@ -90,10 +74,11 @@ Für die tägliche Arbeit reicht:
 
 ```bash
 cd website
-npm run dev                # Entwicklungsserver starten
-npm run test               # Tests im Watch-Mode
-npm run lint               # ESLint
-npm run test:run -- --coverage  # Coverage vor dem Pushen checken
+go run ./cmd/koalanews     # Backend starten
+
+cd website/web
+npm run dev                # Frontend-Devserver starten
+npm run check              # Svelte/TypeScript prüfen
 ```
 
 ## Troubleshooting
@@ -102,19 +87,20 @@ npm run test:run -- --coverage  # Coverage vor dem Pushen checken
 
 ```bash
 docker logs koalanews-test  # Logs ansehen
-docker exec -it koalanews-test sh  # In Container einsteigen
 ```
 
 ### SQLite-Datenbank zurücksetzen
 
 ```bash
-rm -f website/prisma/dev.db
-npx prisma db push
+rm -f website/koalanews.db
+go run ./cmd/koalanews
 ```
 
-### Tests brauchen frischen Prisma-Client
+### Frontend-Build neu einbetten
 
 ```bash
-cd website
-npx prisma generate
+cd website/web
+npm run build
+cd ..
+go build -o /tmp/koalanews ./cmd/koalanews
 ```
