@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- frontend build (SvelteKit adapter-static) ---
-FROM node:22-slim AS web
+FROM node:24-slim AS web
 WORKDIR /web
 COPY web/ ./
 # Build the SvelteKit static output if the project is scaffolded; otherwise the

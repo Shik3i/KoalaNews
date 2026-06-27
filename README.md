@@ -46,7 +46,7 @@ KoalaNews/
 
 ### Voraussetzungen
 
--   Node.js 20+
+-   Node.js 24+
 -   npm
 -   Go 1.26+
 
