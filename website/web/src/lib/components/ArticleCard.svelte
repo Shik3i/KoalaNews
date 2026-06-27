@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Article } from '$lib/api';
   import { appearance } from '$lib/appearance';
+  import { t } from '$lib/i18n';
 
   let {
     article,
@@ -36,6 +37,7 @@
   class="surface overflow-hidden transition-shadow hover:shadow-sm"
   style="padding: var(--card-pad); opacity: {article.read ? 0.55 : 1};"
   data-card-style={$a.cardStyle}
+  data-design={$a.design}
   data-read={article.read}
 >
   <div class="flex gap-3" class:flex-col={$a.cardStyle === 'magazine'}>
@@ -82,8 +84,23 @@
         >
       </h2>
 
-      {#if $a.showDescription && $a.cardStyle !== 'headline' && article.description}
-        <p class="mt-1 line-clamp-3 text-sm text-muted">{stripTags(article.description)}</p>
+      {#if $a.showDescription && $a.descriptionLines > 0 && $a.cardStyle !== 'headline' && article.description}
+        <p
+          class="mt-1 overflow-hidden text-sm text-muted"
+          style="display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:{$a.descriptionLines};"
+        >
+          {stripTags(article.description)}
+        </p>
+      {/if}
+
+      {#if $a.showReadMore && $a.cardStyle !== 'headline' && article.link}
+        <a
+          class="link-accent mt-2 inline-block text-sm"
+          href={article.link}
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          onclick={() => ontoggleread?.(true)}>{$t('home.readMore')} →</a
+        >
       {/if}
     </div>
   </div>

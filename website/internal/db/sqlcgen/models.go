@@ -120,6 +120,8 @@ type UserPreference struct {
 	CardStyle        string `json:"card_style"`
 	Density          string `json:"density"`
 	FontScale        string `json:"font_scale"`
+	Background       string `json:"background"`
+	FontFamily       string `json:"font_family"`
 	AccentColor      string `json:"accent_color"`
 	ShowImages       int64  `json:"show_images"`
 	ShowSource       int64  `json:"show_source"`

@@ -521,7 +521,7 @@ func (q *Queries) GetUserFeedByURL(ctx context.Context, arg GetUserFeedByURLPara
 }
 
 const getUserPreference = `-- name: GetUserPreference :one
-SELECT user_id, theme, design, card_style, density, font_scale, accent_color, show_images, show_source, show_date, show_description, show_read_more, description_lines, updated_at FROM user_preferences WHERE user_id = ? LIMIT 1
+SELECT user_id, theme, design, card_style, density, font_scale, background, font_family, accent_color, show_images, show_source, show_date, show_description, show_read_more, description_lines, updated_at FROM user_preferences WHERE user_id = ? LIMIT 1
 `
 
 func (q *Queries) GetUserPreference(ctx context.Context, userID string) (UserPreference, error) {
@@ -534,6 +534,8 @@ func (q *Queries) GetUserPreference(ctx context.Context, userID string) (UserPre
 		&i.CardStyle,
 		&i.Density,
 		&i.FontScale,
+		&i.Background,
+		&i.FontFamily,
 		&i.AccentColor,
 		&i.ShowImages,
 		&i.ShowSource,
@@ -1432,15 +1434,16 @@ func (q *Queries) UpsertSourceFeed(ctx context.Context, arg UpsertSourceFeedPara
 
 const upsertUserPreference = `-- name: UpsertUserPreference :exec
 INSERT INTO user_preferences (
-  user_id, theme, design, card_style, density, font_scale, accent_color,
-  show_images, show_source, show_date, show_description, description_lines, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  user_id, theme, design, card_style, density, font_scale, background, font_family, accent_color,
+  show_images, show_source, show_date, show_description, show_read_more, description_lines, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
 ON CONFLICT(user_id) DO UPDATE SET
   theme = excluded.theme, design = excluded.design, card_style = excluded.card_style,
-  density = excluded.density, font_scale = excluded.font_scale, accent_color = excluded.accent_color,
+  density = excluded.density, font_scale = excluded.font_scale, background = excluded.background,
+  font_family = excluded.font_family, accent_color = excluded.accent_color,
   show_images = excluded.show_images, show_source = excluded.show_source, show_date = excluded.show_date,
-  show_description = excluded.show_description, description_lines = excluded.description_lines,
-  updated_at = datetime('now')
+  show_description = excluded.show_description, show_read_more = excluded.show_read_more,
+  description_lines = excluded.description_lines, updated_at = datetime('now')
 `
 
 type UpsertUserPreferenceParams struct {
@@ -1450,11 +1453,14 @@ type UpsertUserPreferenceParams struct {
 	CardStyle        string `json:"card_style"`
 	Density          string `json:"density"`
 	FontScale        string `json:"font_scale"`
+	Background       string `json:"background"`
+	FontFamily       string `json:"font_family"`
 	AccentColor      string `json:"accent_color"`
 	ShowImages       int64  `json:"show_images"`
 	ShowSource       int64  `json:"show_source"`
 	ShowDate         int64  `json:"show_date"`
 	ShowDescription  int64  `json:"show_description"`
+	ShowReadMore     int64  `json:"show_read_more"`
 	DescriptionLines int64  `json:"description_lines"`
 }
 
@@ -1466,11 +1472,14 @@ func (q *Queries) UpsertUserPreference(ctx context.Context, arg UpsertUserPrefer
 		arg.CardStyle,
 		arg.Density,
 		arg.FontScale,
+		arg.Background,
+		arg.FontFamily,
 		arg.AccentColor,
 		arg.ShowImages,
 		arg.ShowSource,
 		arg.ShowDate,
 		arg.ShowDescription,
+		arg.ShowReadMore,
 		arg.DescriptionLines,
 	)
 	return err

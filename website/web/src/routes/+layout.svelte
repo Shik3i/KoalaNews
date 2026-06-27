@@ -1,13 +1,11 @@
 <script lang="ts">
   import '../app.css';
   import { onMount } from 'svelte';
-  import AppearancePanel from '$lib/components/AppearancePanel.svelte';
   import { user, fetchMe, logout } from '$lib/auth';
   import { locale, t } from '$lib/i18n';
   import { LOCALES, LOCALE_LABELS } from '$lib/messages';
 
   let { children } = $props();
-  let panelOpen = $state(false);
 
   onMount(fetchMe);
 
@@ -35,9 +33,7 @@
         {:else}
           <a href="/login" class="surface px-3 py-1.5">{$t('nav.signIn')}</a>
         {/if}
-        <button class="surface px-3 py-1.5" onclick={() => (panelOpen = !panelOpen)}>
-          {$t('nav.appearance')}
-        </button>
+        <a href="/appearance" class="surface px-3 py-1.5">{$t('nav.appearance')}</a>
         <select
           class="surface px-2 py-1.5"
           style="background: var(--bg-elevated); color: var(--text);"
@@ -55,6 +51,4 @@
   <main class="mx-auto px-4 py-6" style="max-width: var(--maxw);">
     {@render children()}
   </main>
-
-  <AppearancePanel open={panelOpen} onclose={() => (panelOpen = false)} />
 </div>

@@ -50,6 +50,8 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	alters := []string{
 		`ALTER TABLE feeds ADD COLUMN custom_title TEXT`,
 		`ALTER TABLE user_preferences ADD COLUMN show_read_more INTEGER NOT NULL DEFAULT 1`,
+		`ALTER TABLE user_preferences ADD COLUMN background TEXT NOT NULL DEFAULT 'flat'`,
+		`ALTER TABLE user_preferences ADD COLUMN font_family TEXT NOT NULL DEFAULT 'system'`,
 	}
 	for _, stmt := range alters {
 		if _, err := db.ExecContext(ctx, stmt); err != nil && !strings.Contains(err.Error(), "duplicate column name") {

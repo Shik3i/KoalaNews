@@ -165,6 +165,50 @@
   background-attachment: fixed;
 }
 
+/*
+  Design skins — whole visual personalities layered on top of any of the 9
+  color themes. Scoped to article cards (and the preview card). All effects are
+  derived from existing tokens (--accent/--text/--border/--bg-elevated) via
+  color-mix, so a skin looks right in every theme without hardcoded colors.
+*/
+[data-design='newspaper'] article.surface {
+  border-radius: 0;
+  border-color: var(--text);
+  box-shadow: none;
+  font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+}
+[data-design='terminal'] article.surface {
+  border-radius: 0.25rem;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+  font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', ui-monospace, monospace;
+}
+[data-design='soft'] article.surface {
+  border-radius: 1.25rem;
+  border-color: transparent;
+  box-shadow: 0 12px 32px -14px color-mix(in srgb, var(--text) 28%, transparent);
+}
+[data-design='glass'] article.surface {
+  background: color-mix(in srgb, var(--bg-elevated) 55%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-color: color-mix(in srgb, var(--text) 14%, transparent);
+}
+[data-design='retrowave'] article.surface {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 14px -2px color-mix(in srgb, var(--accent) 70%, transparent),
+    inset 0 0 10px -5px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+[data-design='retrowave'] article.surface h2 a {
+  text-shadow: 0 0 7px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+[data-design='high-contrast'] article.surface {
+  border-width: 2px;
+  border-color: var(--text);
+  box-shadow: none;
+}
+
 html {
   background: var(--bg);
   color: var(--text);

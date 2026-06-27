@@ -13,9 +13,12 @@
           const a = JSON.parse(raw);
           const el = document.documentElement;
           if (a.theme) el.dataset.theme = a.theme;
+          if (a.design) el.dataset.design = a.design;
           if (a.density) el.dataset.density = a.density;
           if (a.cardStyle) el.dataset.cardStyle = a.cardStyle;
           if (a.fontScale) el.dataset.fontScale = a.fontScale;
+          if (a.background) el.dataset.background = a.background;
+          if (a.fontFamily) el.dataset.fontFamily = a.fontFamily;
           if (a.accent) el.style.setProperty('--user-accent', a.accent);
         }
       } catch (e) {}

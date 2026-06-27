@@ -246,12 +246,13 @@ SELECT * FROM user_preferences WHERE user_id = ? LIMIT 1;
 
 -- name: UpsertUserPreference :exec
 INSERT INTO user_preferences (
-  user_id, theme, design, card_style, density, font_scale, accent_color,
-  show_images, show_source, show_date, show_description, description_lines, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  user_id, theme, design, card_style, density, font_scale, background, font_family, accent_color,
+  show_images, show_source, show_date, show_description, show_read_more, description_lines, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
 ON CONFLICT(user_id) DO UPDATE SET
   theme = excluded.theme, design = excluded.design, card_style = excluded.card_style,
-  density = excluded.density, font_scale = excluded.font_scale, accent_color = excluded.accent_color,
+  density = excluded.density, font_scale = excluded.font_scale, background = excluded.background,
+  font_family = excluded.font_family, accent_color = excluded.accent_color,
   show_images = excluded.show_images, show_source = excluded.show_source, show_date = excluded.show_date,
-  show_description = excluded.show_description, description_lines = excluded.description_lines,
-  updated_at = datetime('now');
+  show_description = excluded.show_description, show_read_more = excluded.show_read_more,
+  description_lines = excluded.description_lines, updated_at = datetime('now');

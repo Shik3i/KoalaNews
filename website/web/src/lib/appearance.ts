@@ -12,6 +12,15 @@ export const THEMES = [
   'nord',
   'contrast',
 ] as const;
+export const DESIGNS = [
+  'clean',
+  'newspaper',
+  'terminal',
+  'soft',
+  'glass',
+  'retrowave',
+  'high-contrast',
+] as const;
 export const CARD_STYLES = ['magazine', 'compact', 'headline'] as const;
 export const DENSITIES = ['comfortable', 'compact', 'dense'] as const;
 export const FONT_SCALES = ['small', 'medium', 'large'] as const;
@@ -20,30 +29,36 @@ export const FONT_FAMILIES = ['system', 'serif', 'mono'] as const;
 
 export type Appearance = {
   theme: (typeof THEMES)[number];
+  design: (typeof DESIGNS)[number];
   cardStyle: (typeof CARD_STYLES)[number];
   density: (typeof DENSITIES)[number];
   fontScale: (typeof FONT_SCALES)[number];
   background: (typeof BACKGROUNDS)[number];
   fontFamily: (typeof FONT_FAMILIES)[number];
   accent: string; // free-form CSS color chosen by the user
+  descriptionLines: number; // 0–5; 0 hides the description
   showImages: boolean;
   showSource: boolean;
   showDate: boolean;
   showDescription: boolean;
+  showReadMore: boolean;
 };
 
 export const DEFAULT_APPEARANCE: Appearance = {
   theme: 'system',
+  design: 'clean',
   cardStyle: 'magazine',
   density: 'comfortable',
   fontScale: 'medium',
   background: 'flat',
   fontFamily: 'system',
   accent: '#2563eb',
+  descriptionLines: 3,
   showImages: true,
   showSource: true,
   showDate: true,
   showDescription: true,
+  showReadMore: true,
 };
 
 const STORAGE_KEY = 'koalanews:appearance';
@@ -64,6 +79,7 @@ export function apply(a: Appearance) {
   if (!browser) return;
   const el = document.documentElement;
   el.dataset.theme = a.theme;
+  el.dataset.design = a.design;
   el.dataset.cardStyle = a.cardStyle;
   el.dataset.density = a.density;
   el.dataset.fontScale = a.fontScale;
