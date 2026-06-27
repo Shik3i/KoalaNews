@@ -1,3 +1,9 @@
+*.log
+*.db-wal
+*.db-shm
+.DS_Store
+.idea/
+.vscode/
 node_modules/
 .next/
 *.db
@@ -5,6 +11,8 @@ node_modules/
 .env
 .env.local
 .data/
+.claude/
+backup/
 coverage/
 .husky/_
 *.tsbuildinfo
