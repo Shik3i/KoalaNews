@@ -26,6 +26,9 @@ export const DENSITIES = ['comfortable', 'compact', 'dense'] as const;
 export const FONT_SCALES = ['small', 'medium', 'large'] as const;
 export const BACKGROUNDS = ['flat', 'soft-glow', 'gradient', 'dotted'] as const;
 export const FONT_FAMILIES = ['system', 'serif', 'mono'] as const;
+export const IMAGE_ASPECTS = ['wide', 'square', 'portrait', 'natural'] as const;
+export const IMAGE_FITS = ['cover', 'contain'] as const;
+export const IMAGE_POSITIONS = ['top', 'center', 'bottom'] as const;
 
 export type Appearance = {
   theme: (typeof THEMES)[number];
@@ -35,6 +38,9 @@ export type Appearance = {
   fontScale: (typeof FONT_SCALES)[number];
   background: (typeof BACKGROUNDS)[number];
   fontFamily: (typeof FONT_FAMILIES)[number];
+  imageAspect: (typeof IMAGE_ASPECTS)[number];
+  imageFit: (typeof IMAGE_FITS)[number];
+  imagePosition: (typeof IMAGE_POSITIONS)[number];
   accent: string; // free-form CSS color chosen by the user
   descriptionLines: number; // 0–5; 0 hides the description
   showImages: boolean;
@@ -52,6 +58,9 @@ export const DEFAULT_APPEARANCE: Appearance = {
   fontScale: 'medium',
   background: 'flat',
   fontFamily: 'system',
+  imageAspect: 'wide',
+  imageFit: 'cover',
+  imagePosition: 'center',
   accent: '#2563eb',
   descriptionLines: 3,
   showImages: true,
@@ -85,6 +94,9 @@ export function apply(a: Appearance) {
   el.dataset.fontScale = a.fontScale;
   el.dataset.background = a.background;
   el.dataset.fontFamily = a.fontFamily;
+  el.dataset.imageAspect = a.imageAspect;
+  el.dataset.imageFit = a.imageFit;
+  el.dataset.imagePosition = a.imagePosition;
   el.style.setProperty('--user-accent', a.accent);
 }
 

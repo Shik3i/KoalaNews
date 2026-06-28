@@ -12,20 +12,23 @@ import (
 )
 
 type feedView struct {
-	ID          string  `json:"id"`
-	URL         string  `json:"url"`
-	Title       *string `json:"title"`
-	CustomTitle *string `json:"custom_title"`
-	Description *string `json:"description"`
-	Language    string  `json:"language"`
-	CategoryID  *string `json:"category_id"`
-	CreatedAt   string  `json:"created_at"`
+	ID            string  `json:"id"`
+	URL           string  `json:"url"`
+	Title         *string `json:"title"`
+	CustomTitle   *string `json:"custom_title"`
+	Description   *string `json:"description"`
+	Language      string  `json:"language"`
+	CategoryID    *string `json:"category_id"`
+	LastFetchedAt *string `json:"lastFetchedAt"`
+	LastError     *string `json:"lastError"`
+	CreatedAt     string  `json:"created_at"`
 }
 
 func toFeedView(f sqlcgen.Feed) feedView {
 	return feedView{
 		ID: f.ID, URL: f.Url, Title: f.Title, CustomTitle: f.CustomTitle, Description: f.Description,
-		Language: f.Language, CategoryID: f.CategoryID, CreatedAt: f.CreatedAt,
+		Language: f.Language, CategoryID: f.CategoryID, LastFetchedAt: f.LastFetchedAt,
+		LastError: f.LastError, CreatedAt: f.CreatedAt,
 	}
 }
 
@@ -41,6 +44,26 @@ func (s *Server) handleListFeeds(w http.ResponseWriter, r *http.Request) {
 		views = append(views, toFeedView(f))
 	}
 	writeJSON(w, http.StatusOK, views)
+}
+
+func (s *Server) handleDiscoverFeed(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		URL string `json:"url"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body); err != nil || strings.TrimSpace(body.URL) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "url required"})
+		return
+	}
+	candidates, err := rss.DiscoverFeeds(r.Context(), strings.TrimSpace(body.URL))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "could not discover feed: " + err.Error()})
+		return
+	}
+	if len(candidates) == 0 {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "no RSS or Atom feed found"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"candidates": candidates})
 }
 
 func (s *Server) handleCreateFeed(w http.ResponseWriter, r *http.Request) {
@@ -66,6 +89,35 @@ func (s *Server) handleCreateFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, toFeedView(feed))
+}
+
+func (s *Server) handleRefreshFeed(w http.ResponseWriter, r *http.Request) {
+	u := currentUser(r)
+	feedID := chi.URLParam(r, "id")
+	feed, err := s.store.GetFeedByID(r.Context(), feedID)
+	if err != nil || feed.UserID != u.ID || feed.SourceFeedID == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "feed not found"})
+		return
+	}
+	sf, err := s.store.GetSourceFeedByURL(r.Context(), feed.Url)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "source feed not found"})
+		return
+	}
+	added, err := rss.FetchAndStore(r.Context(), s.store, sf)
+	if err != nil {
+		msg := err.Error()
+		_ = s.store.UpdateFeedRefreshStatus(r.Context(), sqlcgen.UpdateFeedRefreshStatusParams{
+			LastError: &msg, ID: feed.ID, UserID: u.ID,
+		})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "refresh failed: " + msg})
+		return
+	}
+	_ = s.store.UpdateFeedRefreshStatus(r.Context(), sqlcgen.UpdateFeedRefreshStatusParams{
+		LastError: nil, ID: feed.ID, UserID: u.ID,
+	})
+	updated, _ := s.store.GetFeedByID(r.Context(), feed.ID)
+	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "added": added, "feed": toFeedView(updated)})
 }
 
 func (s *Server) handleSetFeedCategory(w http.ResponseWriter, r *http.Request) {

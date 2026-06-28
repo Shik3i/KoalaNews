@@ -10,18 +10,18 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/koaladev/koalanews/internal/db"
-	"github.com/koaladev/koalanews/internal/db/sqlcgen"
 	"github.com/koaladev/koalanews/internal/rss"
 )
 
 type Server struct {
-	store  *db.Store
-	web    fs.FS // embedded SvelteKit static build
-	dbPath string
+	store             *db.Store
+	web               fs.FS // embedded SvelteKit static build
+	dbPath            string
+	allowRegistration bool
 }
 
-func NewServer(store *db.Store, web fs.FS, dbPath string) *Server {
-	return &Server{store: store, web: web, dbPath: dbPath}
+func NewServer(store *db.Store, web fs.FS, dbPath string, allowRegistration bool) *Server {
+	return &Server{store: store, web: web, dbPath: dbPath, allowRegistration: allowRegistration}
 }
 
 func (s *Server) Router() http.Handler {
@@ -36,6 +36,7 @@ func (s *Server) Router() http.Handler {
 
 		r.Get("/health", s.handleHealth)
 		r.Get("/articles", s.handleListArticles)
+		r.Get("/articles/overview", s.handleArticlesOverview)
 		r.Get("/image", s.handleImage)
 		r.Get("/statistics", s.handleStatistics)
 
@@ -43,10 +44,15 @@ func (s *Server) Router() http.Handler {
 		r.Post("/auth/login", s.handleLogin)
 		r.Post("/auth/logout", s.handleLogout)
 		r.Get("/auth/me", s.handleMe)
+		r.Get("/account", s.requireAuth(s.handleGetAccount))
+		r.Patch("/account", s.requireAuth(s.handleUpdateAccount))
+		r.Patch("/account/password", s.requireAuth(s.handleUpdatePassword))
 
 		r.Get("/feeds", s.requireAuth(s.handleListFeeds))
+		r.Post("/feeds/discover", s.requireAuth(s.handleDiscoverFeed))
 		r.Post("/feeds", s.requireAuth(s.handleCreateFeed))
 		r.Delete("/feeds/{id}", s.requireAuth(s.handleDeleteFeed))
+		r.Post("/feeds/{id}/refresh", s.requireAuth(s.handleRefreshFeed))
 		r.Get("/feeds/opml", s.requireAuth(s.handleOPMLExport))
 		r.Post("/feeds/opml/import", s.requireAuth(s.handleOPMLImport))
 		r.Patch("/feeds/{id}/category", s.requireAuth(s.handleSetFeedCategory))
@@ -106,14 +112,24 @@ type articleView struct {
 func (s *Server) handleListArticles(w http.ResponseWriter, r *http.Request) {
 	limit := clampInt(r.URL.Query().Get("limit"), 30, 1, 100)
 	offset := clampInt(r.URL.Query().Get("offset"), 0, 0, 100000)
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	sort := r.URL.Query().Get("sort")
+	unreadOnly := r.URL.Query().Get("unread") == "1" || r.URL.Query().Get("unread") == "true"
 
 	// Logged-in users with subscriptions see their personal feed (with read state);
 	// otherwise the public locale feed. `?scope=public` forces the locale feed.
 	u := currentUser(r)
 	personal := u != nil && r.URL.Query().Get("scope") != "public"
 
-	views := []articleView{}
 	if personal {
+		filter := db.ArticleFilter{
+			UserID:     u.ID,
+			Query:      query,
+			UnreadOnly: unreadOnly,
+			Sort:       sort,
+			Limit:      int64(limit),
+			Offset:     int64(offset),
+		}
 		// Saved custom feed: optional keyword over a selected set of feeds.
 		// An empty selection means "all my feeds" (keyword-only view).
 		if smartFeedID := r.URL.Query().Get("smartFeed"); smartFeedID != "" {
@@ -134,87 +150,54 @@ func (s *Server) handleListArticles(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-			rows, err := s.store.ListArticlesByFeedIDs(r.Context(), u.ID, u.ID, feedIDs, sf.Query, int64(limit), int64(offset))
-			if err != nil {
-				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
-				return
+			filter.FeedIDs = feedIDs
+			if filter.Query == "" {
+				filter.Query = sf.Query
 			}
-			writeJSON(w, http.StatusOK, appendFeedRows(views, rows))
-			return
 		}
 
 		// Ad-hoc multi-feed filter: ?feeds=id1,id2 (or legacy single ?feed=id).
 		if feedIDs := parseFeedIDs(r); len(feedIDs) > 0 {
-			rows, err := s.store.ListArticlesByFeedIDs(r.Context(), u.ID, u.ID, feedIDs, "", int64(limit), int64(offset))
-			if err != nil {
-				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
-				return
-			}
-			writeJSON(w, http.StatusOK, appendFeedRows(views, rows))
-			return
+			filter.FeedIDs = feedIDs
 		}
 
-		categoryID := r.URL.Query().Get("category")
-		if categoryID != "" {
-			rows, err := s.store.ListArticlesForUserByCategory(r.Context(), sqlcgen.ListArticlesForUserByCategoryParams{
-				UserID:     u.ID,
-				UserID_2:   u.ID,
-				CategoryID: &categoryID,
-				Limit:      int64(limit),
-				Offset:     int64(offset),
-			})
-			if err != nil {
-				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
-				return
-			}
-			for _, a := range rows {
-				views = append(views, articleView{
-					ID: a.ID, Title: a.Title, Link: a.Link, Description: a.Description,
-					Content: a.Content, ImageURL: a.ImageUrl, PubDate: a.PubDate, Guid: a.Guid,
-					SourceFeedID: a.SourceFeedID, CreatedAt: a.CreatedAt, Read: a.Read != 0,
-				})
-			}
-			writeJSON(w, http.StatusOK, views)
-			return
+		if filter.CategoryID = r.URL.Query().Get("category"); filter.CategoryID != "" && len(filter.FeedIDs) > 0 {
+			filter.CategoryID = ""
 		}
 
-		rows, err := s.store.ListArticlesForUser(r.Context(), sqlcgen.ListArticlesForUserParams{
-			UserID:   u.ID,
-			UserID_2: u.ID,
-			Limit:    int64(limit),
-			Offset:   int64(offset),
-		})
+		rows, err := s.store.ListArticlesFiltered(r.Context(), filter)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
 			return
 		}
-		for _, a := range rows {
-			views = append(views, articleView{
-				ID: a.ID, Title: a.Title, Link: a.Link, Description: a.Description,
-				Content: a.Content, ImageURL: a.ImageUrl, PubDate: a.PubDate, Guid: a.Guid,
-				SourceFeedID: a.SourceFeedID, CreatedAt: a.CreatedAt, Read: a.Read != 0,
-			})
-		}
-	} else {
-		lang := rss.NormalizeLanguage(r.URL.Query().Get("lang"))
-		rows, err := s.store.ListArticlesByLanguage(r.Context(), sqlcgen.ListArticlesByLanguageParams{
-			Language: lang,
-			Limit:    int64(limit),
-			Offset:   int64(offset),
-		})
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
-			return
-		}
-		for _, a := range rows {
-			views = append(views, articleView{
-				ID: a.ID, Title: a.Title, Link: a.Link, Description: a.Description,
-				Content: a.Content, ImageURL: a.ImageUrl, PubDate: a.PubDate, Guid: a.Guid,
-				SourceFeedID: a.SourceFeedID, CreatedAt: a.CreatedAt, Read: false,
-			})
-		}
+		writeJSON(w, http.StatusOK, articleFilterViews(rows))
+		return
 	}
-	writeJSON(w, http.StatusOK, views)
+
+	rows, err := s.store.ListArticlesFiltered(r.Context(), db.ArticleFilter{
+		Language: rss.NormalizeLanguage(r.URL.Query().Get("lang")),
+		Query:    query,
+		Sort:     sort,
+		Limit:    int64(limit),
+		Offset:   int64(offset),
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "query failed"})
+		return
+	}
+	writeJSON(w, http.StatusOK, articleFilterViews(rows))
+}
+
+func articleFilterViews(rows []db.ArticleFilterRow) []articleView {
+	views := make([]articleView, 0, len(rows))
+	for _, a := range rows {
+		views = append(views, articleView{
+			ID: a.ID, Title: a.Title, Link: a.Link, Description: a.Description,
+			Content: a.Content, ImageURL: a.ImageURL, PubDate: a.PubDate, Guid: a.Guid,
+			SourceFeedID: a.SourceFeedID, CreatedAt: a.CreatedAt, Read: a.Read,
+		})
+	}
+	return views
 }
 
 func (s *Server) handleImage(w http.ResponseWriter, r *http.Request) {
@@ -238,18 +221,6 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
-}
-
-// appendFeedRows maps the shared multi-feed article row type into article views.
-func appendFeedRows(views []articleView, rows []sqlcgen.ListArticlesForUserByFeedRow) []articleView {
-	for _, a := range rows {
-		views = append(views, articleView{
-			ID: a.ID, Title: a.Title, Link: a.Link, Description: a.Description,
-			Content: a.Content, ImageURL: a.ImageUrl, PubDate: a.PubDate, Guid: a.Guid,
-			SourceFeedID: a.SourceFeedID, CreatedAt: a.CreatedAt, Read: a.Read != 0,
-		})
-	}
-	return views
 }
 
 // parseFeedIDs reads the ad-hoc feed filter from ?feeds=a,b,c (or legacy ?feed=a).

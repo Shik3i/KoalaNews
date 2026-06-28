@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS feeds (
     source_feed_id  TEXT REFERENCES source_feeds(id) ON DELETE CASCADE,
     category_id     TEXT REFERENCES categories(id) ON DELETE SET NULL,
     last_fetched_at TEXT,
+    last_error      TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(user_id, url)
 );
@@ -118,6 +119,9 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     background        TEXT NOT NULL DEFAULT 'flat',
     font_family       TEXT NOT NULL DEFAULT 'system',
     accent_color      TEXT NOT NULL DEFAULT '#2563eb',
+    image_aspect      TEXT NOT NULL DEFAULT 'wide',
+    image_fit         TEXT NOT NULL DEFAULT 'cover',
+    image_position    TEXT NOT NULL DEFAULT 'center',
     show_images       INTEGER NOT NULL DEFAULT 1,
     show_source       INTEGER NOT NULL DEFAULT 1,
     show_date         INTEGER NOT NULL DEFAULT 1,

@@ -17,6 +17,9 @@ type prefsView struct {
 	FontScale        string `json:"fontScale"`
 	Background       string `json:"background"`
 	FontFamily       string `json:"fontFamily"`
+	ImageAspect      string `json:"imageAspect"`
+	ImageFit         string `json:"imageFit"`
+	ImagePosition    string `json:"imagePosition"`
 	DescriptionLines int    `json:"descriptionLines"`
 	ShowImages       bool   `json:"showImages"`
 	ShowSource       bool   `json:"showSource"`
@@ -29,6 +32,7 @@ func defaultPrefs() prefsView {
 	return prefsView{
 		Theme: "system", Design: "clean", Accent: "#2563eb", CardStyle: "magazine",
 		Density: "comfortable", FontScale: "medium", Background: "flat", FontFamily: "system",
+		ImageAspect: "wide", ImageFit: "cover", ImagePosition: "center",
 		DescriptionLines: 3,
 		ShowImages:       true, ShowSource: true, ShowDate: true, ShowDescription: true, ShowReadMore: true,
 	}
@@ -44,6 +48,9 @@ func toPrefsView(p sqlcgen.UserPreference) prefsView {
 		FontScale:        p.FontScale,
 		Background:       p.Background,
 		FontFamily:       p.FontFamily,
+		ImageAspect:      p.ImageAspect,
+		ImageFit:         p.ImageFit,
+		ImagePosition:    p.ImagePosition,
 		DescriptionLines: int(p.DescriptionLines),
 		ShowImages:       p.ShowImages != 0,
 		ShowSource:       p.ShowSource != 0,
@@ -90,6 +97,9 @@ func (s *Server) handlePutPreferences(w http.ResponseWriter, r *http.Request) {
 		Background:       in.Background,
 		FontFamily:       in.FontFamily,
 		AccentColor:      in.Accent,
+		ImageAspect:      in.ImageAspect,
+		ImageFit:         in.ImageFit,
+		ImagePosition:    in.ImagePosition,
 		ShowImages:       boolToInt(in.ShowImages),
 		ShowSource:       boolToInt(in.ShowSource),
 		ShowDate:         boolToInt(in.ShowDate),
@@ -113,6 +123,9 @@ func sanitizePrefs(p prefsView) prefsView {
 	p.FontScale = oneOf(p.FontScale, []string{"small", "medium", "large"}, "medium")
 	p.Background = oneOf(p.Background, []string{"flat", "soft-glow", "gradient", "dotted"}, "flat")
 	p.FontFamily = oneOf(p.FontFamily, []string{"system", "serif", "mono"}, "system")
+	p.ImageAspect = oneOf(p.ImageAspect, []string{"wide", "square", "portrait", "natural"}, "wide")
+	p.ImageFit = oneOf(p.ImageFit, []string{"cover", "contain"}, "cover")
+	p.ImagePosition = oneOf(p.ImagePosition, []string{"top", "center", "bottom"}, "center")
 	if p.DescriptionLines < 0 {
 		p.DescriptionLines = 0
 	} else if p.DescriptionLines > 5 {

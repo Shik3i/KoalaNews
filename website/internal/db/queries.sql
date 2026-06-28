@@ -9,6 +9,13 @@ INSERT INTO users (id, name, email, password, role)
 VALUES (?, ?, ?, ?, ?)
 RETURNING *;
 
+-- name: UpdateUserProfile :one
+UPDATE users SET name = ?, email = ? WHERE id = ?
+RETURNING *;
+
+-- name: UpdateUserPassword :exec
+UPDATE users SET password = ? WHERE id = ?;
+
 -- name: CountUsers :one
 SELECT count(*) FROM users;
 
@@ -76,6 +83,9 @@ UPDATE feeds SET category_id = ? WHERE id = ? AND user_id = ?;
 
 -- name: UpdateFeedTitle :exec
 UPDATE feeds SET custom_title = ? WHERE id = ? AND user_id = ?;
+
+-- name: UpdateFeedRefreshStatus :exec
+UPDATE feeds SET last_fetched_at = datetime('now'), last_error = ? WHERE id = ? AND user_id = ?;
 
 -- name: CreateCategory :one
 INSERT INTO categories (id, name, user_id) VALUES (?, ?, ?)
@@ -247,12 +257,14 @@ SELECT * FROM user_preferences WHERE user_id = ? LIMIT 1;
 -- name: UpsertUserPreference :exec
 INSERT INTO user_preferences (
   user_id, theme, design, card_style, density, font_scale, background, font_family, accent_color,
+  image_aspect, image_fit, image_position,
   show_images, show_source, show_date, show_description, show_read_more, description_lines, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
 ON CONFLICT(user_id) DO UPDATE SET
   theme = excluded.theme, design = excluded.design, card_style = excluded.card_style,
   density = excluded.density, font_scale = excluded.font_scale, background = excluded.background,
   font_family = excluded.font_family, accent_color = excluded.accent_color,
+  image_aspect = excluded.image_aspect, image_fit = excluded.image_fit, image_position = excluded.image_position,
   show_images = excluded.show_images, show_source = excluded.show_source, show_date = excluded.show_date,
   show_description = excluded.show_description, show_read_more = excluded.show_read_more,
   description_lines = excluded.description_lines, updated_at = datetime('now');

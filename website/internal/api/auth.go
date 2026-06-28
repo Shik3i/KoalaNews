@@ -42,6 +42,11 @@ func decodeCreds(r *http.Request) (credentials, bool) {
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
+	if !s.allowRegistration {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "registration disabled"})
+		return
+	}
+
 	c, ok := decodeCreds(r)
 	if !ok || !emailRe.MatchString(c.Email) || len(c.Password) < 8 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid email or password too short (min 8)"})

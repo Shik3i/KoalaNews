@@ -108,8 +108,9 @@ func (s *Server) handleOPMLImport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	added, skipped, failed := 0, 0, 0
+	lang := rss.NormalizeLanguage(r.URL.Query().Get("lang"))
 	for _, url := range urls {
-		_, err := rss.SubscribeFeed(r.Context(), s.store, u.ID, url, "en")
+		_, err := rss.SubscribeFeed(r.Context(), s.store, u.ID, url, lang)
 		switch {
 		case err == nil:
 			added++

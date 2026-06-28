@@ -100,6 +100,8 @@ docker run -d \
   -v /pfad/zu/data:/data \
   -e SESSION_KEY="$(openssl rand -base64 32)" \
   -e DATABASE_URL="file:/data/koalanews-v2.db" \
+  -e ADMIN_EMAIL="admin@example.com" \
+  -e ADMIN_PASSWORD="change-me-please" \
   -e SYNC_INTERVAL="15m" \
   ghcr.io/dein-user/KoalaNews/koalanews-website:latest
 ```
@@ -114,6 +116,11 @@ Die SQLite-Datenbank liegt unter `/data/koalanews-v2.db`; GFS-Backups liegen unt
 | `SESSION_KEY`     | Secret für Session-Cookies    | `openssl rand -base64 32`         |
 | `ADDR`            | Listen-Adresse                | `:3000`                           |
 | `SYNC_INTERVAL`   | RSS-Sync-Intervall            | `15m`                             |
+| `ALLOW_REGISTRATION` | Registrierung erlauben     | `true`                            |
+| `ADMIN_EMAIL`     | Optionaler Admin-Bootstrap    | `admin@example.com`               |
+| `ADMIN_PASSWORD`  | Passwort für diesen Admin     | `change-me-please`                |
+
+Wenn `ADMIN_EMAIL` und `ADMIN_PASSWORD` gesetzt sind, stellt KoalaNews diesen Benutzer beim Start als Admin sicher und setzt dessen Passwort auf den angegebenen Wert. `NEXTAUTH_SECRET` wird nur noch als Legacy-Fallback für `SESSION_KEY` akzeptiert; NextAuth selbst wird in der neuen Go-Version nicht mehr verwendet.
 
 ## Caddy Reverse Proxy
 

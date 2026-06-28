@@ -29,7 +29,32 @@
   // Cache-proxied image via the Go backend (never hot-links third parties).
   function imgSrc(url: string | null): string | null {
     if (!url) return null;
+    if (url.startsWith('data:') || url.startsWith('/')) return url;
     return `/api/image?url=${encodeURIComponent(url)}`;
+  }
+
+  function imageStyle(cardStyle: string, aspect: string, fit: string, position: string): string {
+    const base = [
+      `object-fit:${fit}`,
+      `object-position:${position}`,
+      'background:var(--bg-sunken)',
+    ];
+    if (cardStyle === 'compact') {
+      const sizes: Record<string, string> = {
+        wide: 'width:8rem;height:5rem',
+        square: 'width:6rem;height:6rem',
+        portrait: 'width:5rem;height:7rem',
+        natural: 'width:7rem;max-height:7rem',
+      };
+      return [...base, sizes[aspect] ?? sizes.wide, 'flex:none'].join(';');
+    }
+    if (aspect === 'natural') return [...base, 'max-height:14rem'].join(';');
+    const ratios: Record<string, string> = {
+      wide: '16 / 9',
+      square: '1 / 1',
+      portrait: '4 / 5',
+    };
+    return [...base, `aspect-ratio:${ratios[aspect] ?? ratios.wide}`, 'max-height:18rem'].join(';');
   }
 </script>
 
@@ -48,9 +73,7 @@
         loading="lazy"
         class="w-full object-cover"
         class:rounded-md={true}
-        style={$a.cardStyle === 'compact'
-          ? 'width:6rem;height:6rem;flex:none;'
-          : 'max-height:14rem;'}
+        style={imageStyle($a.cardStyle, $a.imageAspect, $a.imageFit, $a.imagePosition)}
       />
     {/if}
 

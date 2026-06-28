@@ -113,7 +113,7 @@ func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) 
 const createFeed = `-- name: CreateFeed :one
 INSERT INTO feeds (id, url, title, description, language, user_id, source_feed_id, last_fetched_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-RETURNING id, url, title, custom_title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at
+RETURNING id, url, title, custom_title, description, language, user_id, source_feed_id, category_id, last_fetched_at, last_error, created_at
 `
 
 type CreateFeedParams struct {
@@ -148,6 +148,7 @@ func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, e
 		&i.SourceFeedID,
 		&i.CategoryID,
 		&i.LastFetchedAt,
+		&i.LastError,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -350,7 +351,7 @@ func (q *Queries) GetCategoryByID(ctx context.Context, id string) (Category, err
 }
 
 const getFeedByID = `-- name: GetFeedByID :one
-SELECT id, url, title, custom_title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at FROM feeds WHERE id = ? LIMIT 1
+SELECT id, url, title, custom_title, description, language, user_id, source_feed_id, category_id, last_fetched_at, last_error, created_at FROM feeds WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetFeedByID(ctx context.Context, id string) (Feed, error) {
@@ -367,6 +368,7 @@ func (q *Queries) GetFeedByID(ctx context.Context, id string) (Feed, error) {
 		&i.SourceFeedID,
 		&i.CategoryID,
 		&i.LastFetchedAt,
+		&i.LastError,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -493,7 +495,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 }
 
 const getUserFeedByURL = `-- name: GetUserFeedByURL :one
-SELECT id, url, title, custom_title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at FROM feeds WHERE user_id = ? AND url = ? LIMIT 1
+SELECT id, url, title, custom_title, description, language, user_id, source_feed_id, category_id, last_fetched_at, last_error, created_at FROM feeds WHERE user_id = ? AND url = ? LIMIT 1
 `
 
 type GetUserFeedByURLParams struct {
@@ -515,13 +517,14 @@ func (q *Queries) GetUserFeedByURL(ctx context.Context, arg GetUserFeedByURLPara
 		&i.SourceFeedID,
 		&i.CategoryID,
 		&i.LastFetchedAt,
+		&i.LastError,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getUserPreference = `-- name: GetUserPreference :one
-SELECT user_id, theme, design, card_style, density, font_scale, background, font_family, accent_color, show_images, show_source, show_date, show_description, show_read_more, description_lines, updated_at FROM user_preferences WHERE user_id = ? LIMIT 1
+SELECT user_id, theme, design, card_style, density, font_scale, background, font_family, accent_color, image_aspect, image_fit, image_position, show_images, show_source, show_date, show_description, show_read_more, description_lines, updated_at FROM user_preferences WHERE user_id = ? LIMIT 1
 `
 
 func (q *Queries) GetUserPreference(ctx context.Context, userID string) (UserPreference, error) {
@@ -537,6 +540,9 @@ func (q *Queries) GetUserPreference(ctx context.Context, userID string) (UserPre
 		&i.Background,
 		&i.FontFamily,
 		&i.AccentColor,
+		&i.ImageAspect,
+		&i.ImageFit,
+		&i.ImagePosition,
 		&i.ShowImages,
 		&i.ShowSource,
 		&i.ShowDate,
@@ -1000,7 +1006,7 @@ func (q *Queries) ListExistingGuids(ctx context.Context, sourceFeedID *string) (
 }
 
 const listFeedsByUser = `-- name: ListFeedsByUser :many
-SELECT id, url, title, custom_title, description, language, user_id, source_feed_id, category_id, last_fetched_at, created_at FROM feeds WHERE user_id = ? ORDER BY created_at DESC
+SELECT id, url, title, custom_title, description, language, user_id, source_feed_id, category_id, last_fetched_at, last_error, created_at FROM feeds WHERE user_id = ? ORDER BY created_at DESC
 `
 
 func (q *Queries) ListFeedsByUser(ctx context.Context, userID string) ([]Feed, error) {
@@ -1023,6 +1029,7 @@ func (q *Queries) ListFeedsByUser(ctx context.Context, userID string) ([]Feed, e
 			&i.SourceFeedID,
 			&i.CategoryID,
 			&i.LastFetchedAt,
+			&i.LastError,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -1334,6 +1341,21 @@ func (q *Queries) TopSourceFeedsByArticleCount(ctx context.Context, limit int64)
 	return items, nil
 }
 
+const updateFeedRefreshStatus = `-- name: UpdateFeedRefreshStatus :exec
+UPDATE feeds SET last_fetched_at = datetime('now'), last_error = ? WHERE id = ? AND user_id = ?
+`
+
+type UpdateFeedRefreshStatusParams struct {
+	LastError *string `json:"last_error"`
+	ID        string  `json:"id"`
+	UserID    string  `json:"user_id"`
+}
+
+func (q *Queries) UpdateFeedRefreshStatus(ctx context.Context, arg UpdateFeedRefreshStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateFeedRefreshStatus, arg.LastError, arg.ID, arg.UserID)
+	return err
+}
+
 const updateFeedTitle = `-- name: UpdateFeedTitle :exec
 UPDATE feeds SET custom_title = ? WHERE id = ? AND user_id = ?
 `
@@ -1370,6 +1392,47 @@ func (q *Queries) UpdateSourceFeedMeta(ctx context.Context, arg UpdateSourceFeed
 		arg.ID,
 	)
 	return err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :exec
+UPDATE users SET password = ? WHERE id = ?
+`
+
+type UpdateUserPasswordParams struct {
+	Password *string `json:"password"`
+	ID       string  `json:"id"`
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserPassword, arg.Password, arg.ID)
+	return err
+}
+
+const updateUserProfile = `-- name: UpdateUserProfile :one
+UPDATE users SET name = ?, email = ? WHERE id = ?
+RETURNING id, name, email, password, role, banned, banned_reason, created_at
+`
+
+type UpdateUserProfileParams struct {
+	Name  *string `json:"name"`
+	Email string  `json:"email"`
+	ID    string  `json:"id"`
+}
+
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUserProfile, arg.Name, arg.Email, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Password,
+		&i.Role,
+		&i.Banned,
+		&i.BannedReason,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const upsertCachedImage = `-- name: UpsertCachedImage :exec
@@ -1435,12 +1498,14 @@ func (q *Queries) UpsertSourceFeed(ctx context.Context, arg UpsertSourceFeedPara
 const upsertUserPreference = `-- name: UpsertUserPreference :exec
 INSERT INTO user_preferences (
   user_id, theme, design, card_style, density, font_scale, background, font_family, accent_color,
+  image_aspect, image_fit, image_position,
   show_images, show_source, show_date, show_description, show_read_more, description_lines, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
 ON CONFLICT(user_id) DO UPDATE SET
   theme = excluded.theme, design = excluded.design, card_style = excluded.card_style,
   density = excluded.density, font_scale = excluded.font_scale, background = excluded.background,
   font_family = excluded.font_family, accent_color = excluded.accent_color,
+  image_aspect = excluded.image_aspect, image_fit = excluded.image_fit, image_position = excluded.image_position,
   show_images = excluded.show_images, show_source = excluded.show_source, show_date = excluded.show_date,
   show_description = excluded.show_description, show_read_more = excluded.show_read_more,
   description_lines = excluded.description_lines, updated_at = datetime('now')
@@ -1456,6 +1521,9 @@ type UpsertUserPreferenceParams struct {
 	Background       string `json:"background"`
 	FontFamily       string `json:"font_family"`
 	AccentColor      string `json:"accent_color"`
+	ImageAspect      string `json:"image_aspect"`
+	ImageFit         string `json:"image_fit"`
+	ImagePosition    string `json:"image_position"`
 	ShowImages       int64  `json:"show_images"`
 	ShowSource       int64  `json:"show_source"`
 	ShowDate         int64  `json:"show_date"`
@@ -1475,6 +1543,9 @@ func (q *Queries) UpsertUserPreference(ctx context.Context, arg UpsertUserPrefer
 		arg.Background,
 		arg.FontFamily,
 		arg.AccentColor,
+		arg.ImageAspect,
+		arg.ImageFit,
+		arg.ImagePosition,
 		arg.ShowImages,
 		arg.ShowSource,
 		arg.ShowDate,

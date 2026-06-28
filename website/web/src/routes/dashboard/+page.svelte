@@ -12,25 +12,29 @@
     deleteCategory,
     setFeedCategory,
     renameFeed,
+    discoverFeeds,
+    refreshFeed,
     listSmartFeeds,
     createSmartFeed,
     deleteSmartFeed,
     type Feed,
     type Category,
     type SmartFeed,
+    type FeedCandidate,
   } from '$lib/api';
   import FeedPicker from '$lib/components/FeedPicker.svelte';
   import { feedLabel } from '$lib/feeds';
-  import { t } from '$lib/i18n';
+  import { locale, t } from '$lib/i18n';
 
   let feeds = $state<Feed[]>([]);
   let categories = $state<Category[]>([]);
   let smartFeeds = $state<SmartFeed[]>([]);
   let loading = $state(true);
   let url = $state('');
-  let language = $state('en');
   let busy = $state(false);
   let error = $state<string | null>(null);
+  let discovering = $state(false);
+  let candidates = $state<FeedCandidate[]>([]);
   let importing = $state(false);
   let importMsg = $state<string | null>(null);
   let fileInput = $state<HTMLInputElement | null>(null);
@@ -40,6 +44,7 @@
   let newSmartFeedFeedIds = $state<string[]>([]);
   let renameTitles = $state<Record<string, string>>({});
   let renamingFeed = $state('');
+  let refreshingFeed = $state('');
 
   async function onImportFile(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -50,7 +55,7 @@
     error = null;
     try {
       const text = await file.text();
-      const r = await importOPML(text);
+      const r = await importOPML(text, $locale);
       importMsg = `Imported ${r.added} feed(s), ${r.skipped} already present, ${r.failed} failed.`;
       await refresh();
     } catch (err) {
@@ -83,7 +88,7 @@
     busy = true;
     error = null;
     try {
-      const feed = await addFeed(url.trim(), language);
+      const feed = await addFeed(url.trim(), $locale);
       feeds = [feed, ...feeds];
       renameTitles = { ...renameTitles, [feed.id]: feed.custom_title ?? '' };
       url = '';
@@ -91,6 +96,53 @@
       error = err instanceof Error ? err.message : 'Could not add feed';
     } finally {
       busy = false;
+    }
+  }
+
+  async function discover() {
+    if (!url.trim()) return;
+    discovering = true;
+    error = null;
+    candidates = [];
+    try {
+      candidates = await discoverFeeds(url.trim());
+      if (candidates.length === 1) {
+        url = candidates[0].url;
+      }
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Could not discover feed';
+    } finally {
+      discovering = false;
+    }
+  }
+
+  async function addCandidate(candidate: FeedCandidate) {
+    busy = true;
+    error = null;
+    try {
+      const feed = await addFeed(candidate.url, $locale);
+      feeds = [feed, ...feeds];
+      renameTitles = { ...renameTitles, [feed.id]: feed.custom_title ?? '' };
+      url = '';
+      candidates = [];
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Could not add feed';
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function refreshOne(feed: Feed) {
+    refreshingFeed = feed.id;
+    error = null;
+    try {
+      const result = await refreshFeed(feed.id);
+      feeds = feeds.map((f) => (f.id === feed.id ? result.feed : f));
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Could not refresh feed';
+      await refresh();
+    } finally {
+      refreshingFeed = '';
     }
   }
 
@@ -230,19 +282,29 @@
     bind:value={url}
     required
   />
-  <select
-    class="surface px-3 py-2"
-    style="background: var(--bg-elevated); color: var(--text);"
-    bind:value={language}
-  >
-    <option value="en">EN</option>
-    <option value="de">DE</option>
-    <option value="fr">FR</option>
-  </select>
   <button class="btn-accent px-4 py-2 font-medium disabled:opacity-60" disabled={busy}>
     {busy ? $t('dashboard.adding') : $t('dashboard.addFeed')}
   </button>
+  <button type="button" class="surface px-4 py-2 font-medium disabled:opacity-60" disabled={discovering} onclick={discover}>
+    {discovering ? $t('dashboard.discovering') : $t('dashboard.discover')}
+  </button>
 </form>
+
+{#if candidates.length > 0}
+  <div class="mb-6 space-y-2">
+    {#each candidates as candidate (candidate.url)}
+      <div class="surface flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+        <div class="min-w-0">
+          <p class="truncate text-sm font-medium">{candidate.title || candidate.url}</p>
+          <p class="truncate text-xs text-muted">{candidate.url}</p>
+        </div>
+        <button class="btn-accent shrink-0 px-3 py-1.5 text-sm" disabled={busy} onclick={() => addCandidate(candidate)}>
+          {$t('dashboard.add')}
+        </button>
+      </div>
+    {/each}
+  </div>
+{/if}
 
 <div class="mb-6 flex flex-wrap items-center gap-3 text-sm">
   <a class="surface px-3 py-1.5" href="/api/feeds/opml" download>{$t('dashboard.exportOpml')}</a>
@@ -339,6 +401,13 @@
         <div class="min-w-0 flex-1">
           <p class="truncate font-medium">{feedLabel(feed)}</p>
           <p class="truncate text-xs text-muted">{feed.url}</p>
+          <p class="mt-1 text-xs" class:text-muted={!feed.lastError} style={feed.lastError ? 'color: #ef4444;' : ''}>
+            {feed.lastError
+              ? `${$t('dashboard.feedError')}: ${feed.lastError}`
+              : feed.lastFetchedAt
+                ? `${$t('dashboard.lastRefresh')}: ${new Date(feed.lastFetchedAt).toLocaleString()}`
+                : $t('dashboard.notRefreshed')}
+          </p>
           <div class="mt-2 flex max-w-md items-center gap-2">
             <input
               class="surface min-w-0 flex-1 px-2 py-1.5 text-sm"
@@ -370,6 +439,13 @@
           <button class="surface px-3 py-1.5 text-sm" style="color: #ef4444;" onclick={() => remove(feed.id)}
             >{$t('dashboard.remove')}</button
           >
+          <button
+            class="surface px-3 py-1.5 text-sm disabled:opacity-60"
+            disabled={refreshingFeed === feed.id}
+            onclick={() => refreshOne(feed)}
+          >
+            {refreshingFeed === feed.id ? '…' : $t('dashboard.refresh')}
+          </button>
         </div>
       </li>
     {/each}

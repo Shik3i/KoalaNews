@@ -41,6 +41,7 @@ type Feed struct {
 	SourceFeedID  *string `json:"source_feed_id"`
 	CategoryID    *string `json:"category_id"`
 	LastFetchedAt *string `json:"last_fetched_at"`
+	LastError     *string `json:"last_error"`
 	CreatedAt     string  `json:"created_at"`
 }
 
@@ -123,6 +124,9 @@ type UserPreference struct {
 	Background       string `json:"background"`
 	FontFamily       string `json:"font_family"`
 	AccentColor      string `json:"accent_color"`
+	ImageAspect      string `json:"image_aspect"`
+	ImageFit         string `json:"image_fit"`
+	ImagePosition    string `json:"image_position"`
 	ShowImages       int64  `json:"show_images"`
 	ShowSource       int64  `json:"show_source"`
 	ShowDate         int64  `json:"show_date"`

@@ -9,23 +9,19 @@
     listSmartFeeds,
     listFeeds,
     createSmartFeed,
+    getArticlesOverview,
     type Article,
     type Category,
     type SmartFeed,
     type Feed,
+    type Story,
+    type DaySummary,
   } from '$lib/api';
   import { user } from '$lib/auth';
-  import { t } from '$lib/i18n';
+  import { locale, t } from '$lib/i18n';
   import ArticleCard from '$lib/components/ArticleCard.svelte';
   import FeedPicker from '$lib/components/FeedPicker.svelte';
 
-  const LANGS = [
-    ['en', '🇬🇧 English'],
-    ['de', '🇩🇪 Deutsch'],
-    ['fr', '🇫🇷 Français'],
-  ] as const;
-
-  let lang = $state('en');
   let articles = $state<Article[]>([]);
   let categories = $state<Category[]>([]);
   let smartFeeds = $state<SmartFeed[]>([]);
@@ -35,25 +31,56 @@
   let adhocFeedIds = $state<string[]>([]);
   let feedPickerOpen = $state(false);
   let loading = $state(true);
+  let loadingMore = $state(false);
   let error = $state<string | null>(null);
+  let query = $state('');
+  let unreadOnly = $state(false);
+  let sort = $state<'newest' | 'oldest' | 'title' | 'source'>('newest');
+  let hasMore = $state(false);
+  let topStories = $state<Story[]>([]);
+  let daySummaries = $state<DaySummary[]>([]);
 
-  async function load() {
-    loading = true;
+  const pageSize = 40;
+
+  function articleOptions(offset = 0) {
+    return $user
+      ? {
+          limit: pageSize,
+          offset,
+          category: activeSmartFeed || adhocFeedIds.length ? undefined : activeCategory || undefined,
+          smartFeed: adhocFeedIds.length ? undefined : activeSmartFeed || undefined,
+          feeds: adhocFeedIds.length ? adhocFeedIds : undefined,
+          q: query.trim() || undefined,
+          unread: unreadOnly,
+          sort,
+        }
+      : {
+          lang: $locale,
+          limit: pageSize,
+          offset,
+          q: query.trim() || undefined,
+          sort,
+        };
+  }
+
+  async function load(reset = true) {
+    if (reset) loading = true;
+    else loadingMore = true;
     error = null;
     try {
-      // Logged-in users get their personal subscription feed; guests get the locale feed.
-      articles = $user
-        ? await listArticles({
-            limit: 40,
-            category: activeSmartFeed || adhocFeedIds.length ? undefined : activeCategory || undefined,
-            smartFeed: adhocFeedIds.length ? undefined : activeSmartFeed || undefined,
-            feeds: adhocFeedIds.length ? adhocFeedIds : undefined,
-          })
-        : await listArticles({ lang, limit: 40 });
+      const next = await listArticles(articleOptions(reset ? 0 : articles.length));
+      articles = reset ? next : [...articles, ...next];
+      hasMore = next.length === pageSize;
+      if (reset) {
+        const overview = await getArticlesOverview(articleOptions(0));
+        topStories = overview.topStories;
+        daySummaries = overview.days;
+      }
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load';
     } finally {
       loading = false;
+      loadingMore = false;
     }
   }
 
@@ -103,13 +130,16 @@
   }
 
   $effect(() => {
-    // Re-run when the user logs in/out, the guest language, or the active filter changes.
+    // Re-run when the user logs in/out, the global locale, or the active filter changes.
     void $user;
-    void lang;
+    void $locale;
     void activeCategory;
     void activeSmartFeed;
     void adhocFeedIds;
-    load();
+    void query;
+    void unreadOnly;
+    void sort;
+    load(true);
   });
 
   // Optimistic read toggle: update the UI immediately, then persist; roll back on error.
@@ -145,6 +175,29 @@
     {#if unreadCount > 0}
       <button class="surface px-3 py-1.5 text-sm" onclick={markAll}>{$t('home.markAllRead')}</button>
     {/if}
+  </div>
+  <div class="mb-4 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+    <input
+      class="surface min-w-0 px-3 py-2 text-sm"
+      style="background: var(--bg-elevated); color: var(--text);"
+      placeholder={$t('home.searchArticles')}
+      bind:value={query}
+    />
+    <select
+      class="surface px-3 py-2 text-sm"
+      style="background: var(--bg-elevated); color: var(--text);"
+      bind:value={sort}
+    >
+      <option value="newest">{$t('home.sortNewest')}</option>
+      <option value="oldest">{$t('home.sortOldest')}</option>
+      <option value="title">{$t('home.sortTitle')}</option>
+      <option value="source">{$t('home.sortSource')}</option>
+    </select>
+    <label class="surface flex items-center gap-2 px-3 py-2 text-sm">
+      <input type="checkbox" bind:checked={unreadOnly} />
+      {$t('home.unreadOnly')}
+    </label>
+    <button class="surface px-3 py-2 text-sm" onclick={() => load(true)}>{$t('home.refresh')}</button>
   </div>
   {#if categories.length > 0 || smartFeeds.length > 0 || feeds.length > 0}
     <div class="mb-5 flex flex-wrap items-center gap-2">
@@ -194,14 +247,59 @@
     {/if}
   {/if}
 {:else}
-  <div class="mb-5 flex items-center gap-2 text-sm">
-    <label for="feed-lang" class="text-muted">{$t('home.feedLanguage')}</label>
-    <select id="feed-lang" class="surface px-2 py-1.5" bind:value={lang}>
-      {#each LANGS as [code, label]}
-        <option value={code}>{label}</option>
-      {/each}
+  <div class="mb-4 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+    <input
+      class="surface min-w-0 px-3 py-2 text-sm"
+      style="background: var(--bg-elevated); color: var(--text);"
+      placeholder={$t('home.searchArticles')}
+      bind:value={query}
+    />
+    <select
+      class="surface px-3 py-2 text-sm"
+      style="background: var(--bg-elevated); color: var(--text);"
+      bind:value={sort}
+    >
+      <option value="newest">{$t('home.sortNewest')}</option>
+      <option value="oldest">{$t('home.sortOldest')}</option>
+      <option value="title">{$t('home.sortTitle')}</option>
+      <option value="source">{$t('home.sortSource')}</option>
     </select>
   </div>
+{/if}
+
+{#if !loading && (topStories.length > 0 || daySummaries.length > 0)}
+  <section class="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+    {#if topStories.length > 0}
+      <div class="surface px-4 py-3">
+        <h2 class="mb-2 text-sm font-medium text-muted">{$t('home.topStories')}</h2>
+        <div class="flex flex-wrap gap-2">
+          {#each topStories as story (story.key)}
+            <button
+              class="surface max-w-full px-3 py-1.5 text-left text-sm"
+              title={story.title}
+              onclick={() => (query = story.title)}
+            >
+              <span class="font-medium">{story.title}</span>
+              {#if story.count > 1}<span class="ml-1 text-muted">({story.count})</span>{/if}
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/if}
+    {#if daySummaries.length > 0}
+      <div class="surface px-4 py-3">
+        <h2 class="mb-2 text-sm font-medium text-muted">{$t('home.dailyOverview')}</h2>
+        <div class="space-y-1 text-sm">
+          {#each daySummaries as day (day.date)}
+            <div class="flex justify-between gap-3">
+              <span>{day.date}</span>
+              <span class="text-muted">{day.count}</span>
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
+  </section>
 {/if}
 
 {#if loading}
@@ -226,4 +324,11 @@
       <ArticleCard {article} ontoggleread={$user ? (read) => toggleRead(article, read) : undefined} />
     {/each}
   </div>
+  {#if hasMore}
+    <div class="mt-5 flex justify-center">
+      <button class="surface px-4 py-2 text-sm disabled:opacity-60" disabled={loadingMore} onclick={() => load(false)}>
+        {loadingMore ? $t('home.loadingMore') : $t('home.loadMore')}
+      </button>
+    </div>
+  {/if}
 {/if}

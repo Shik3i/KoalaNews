@@ -26,6 +26,7 @@
         <a href="/statistics" class="surface px-3 py-1.5">{$t('nav.statistics')}</a>
         {#if $user}
           <a href="/dashboard" class="surface px-3 py-1.5">{$t('nav.dashboard')}</a>
+          <a href="/settings" class="surface px-3 py-1.5">{$t('nav.settings')}</a>
           {#if $user.role === 'ADMIN'}
             <a href="/admin" class="surface px-3 py-1.5">{$t('nav.admin')}</a>
           {/if}

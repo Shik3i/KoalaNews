@@ -52,6 +52,10 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		`ALTER TABLE user_preferences ADD COLUMN show_read_more INTEGER NOT NULL DEFAULT 1`,
 		`ALTER TABLE user_preferences ADD COLUMN background TEXT NOT NULL DEFAULT 'flat'`,
 		`ALTER TABLE user_preferences ADD COLUMN font_family TEXT NOT NULL DEFAULT 'system'`,
+		`ALTER TABLE user_preferences ADD COLUMN image_aspect TEXT NOT NULL DEFAULT 'wide'`,
+		`ALTER TABLE user_preferences ADD COLUMN image_fit TEXT NOT NULL DEFAULT 'cover'`,
+		`ALTER TABLE user_preferences ADD COLUMN image_position TEXT NOT NULL DEFAULT 'center'`,
+		`ALTER TABLE feeds ADD COLUMN last_error TEXT`,
 	}
 	for _, stmt := range alters {
 		if _, err := db.ExecContext(ctx, stmt); err != nil && !strings.Contains(err.Error(), "duplicate column name") {

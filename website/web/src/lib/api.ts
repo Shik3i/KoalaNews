@@ -26,6 +26,8 @@ export type Feed = {
   description: string | null;
   language: string;
   category_id: string | null;
+  lastFetchedAt: string | null;
+  lastError: string | null;
   created_at: string;
 };
 
@@ -51,6 +53,9 @@ export function listArticles(
     smartFeed?: string;
     feedId?: string;
     feeds?: string[];
+    q?: string;
+    unread?: boolean;
+    sort?: 'newest' | 'oldest' | 'title' | 'source';
     limit?: number;
     offset?: number;
   } = {},
@@ -62,9 +67,40 @@ export function listArticles(
   if (opts.smartFeed) q.set('smartFeed', opts.smartFeed);
   if (opts.feedId) q.set('feed', opts.feedId);
   if (opts.feeds?.length) q.set('feeds', opts.feeds.join(','));
+  if (opts.q) q.set('q', opts.q);
+  if (opts.unread) q.set('unread', '1');
+  if (opts.sort) q.set('sort', opts.sort);
   q.set('limit', String(opts.limit ?? 30));
   q.set('offset', String(opts.offset ?? 0));
   return getJSON<Article[]>(`/api/articles?${q}`);
+}
+
+export type Story = {
+  key: string;
+  title: string;
+  count: number;
+  sources: string[];
+  articles: Article[];
+};
+
+export type DaySummary = {
+  date: string;
+  count: number;
+};
+
+export function getArticlesOverview(
+  opts: Parameters<typeof listArticles>[0] = {},
+): Promise<{ topStories: Story[]; days: DaySummary[] }> {
+  const q = new URLSearchParams();
+  if (opts.lang) q.set('lang', opts.lang);
+  if (opts.scope) q.set('scope', opts.scope);
+  if (opts.category) q.set('category', opts.category);
+  if (opts.smartFeed) q.set('smartFeed', opts.smartFeed);
+  if (opts.feedId) q.set('feed', opts.feedId);
+  if (opts.feeds?.length) q.set('feeds', opts.feeds.join(','));
+  if (opts.q) q.set('q', opts.q);
+  if (opts.unread) q.set('unread', '1');
+  return getJSON<{ topStories: Story[]; days: DaySummary[] }>(`/api/articles/overview?${q}`);
 }
 
 export function listFeeds(): Promise<Feed[]> {
@@ -139,8 +175,11 @@ export function deleteSmartFeed(id: string): Promise<{ status: string }> {
 
 export type OPMLImportResult = { added: number; skipped: number; failed: number; total: number };
 
-export async function importOPML(content: string): Promise<OPMLImportResult> {
-  const res = await fetch('/api/feeds/opml/import', {
+export async function importOPML(content: string, language?: string): Promise<OPMLImportResult> {
+  const path = language
+    ? `/api/feeds/opml/import?${new URLSearchParams({ lang: language })}`
+    : '/api/feeds/opml/import';
+  const res = await fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'text/x-opml' },
     body: content,
@@ -165,8 +204,46 @@ export function addFeed(url: string, language: string): Promise<Feed> {
   return send<Feed>('POST', '/api/feeds', { url, language });
 }
 
+export type FeedCandidate = {
+  url: string;
+  title: string;
+  description: string;
+};
+
+export async function discoverFeeds(url: string): Promise<FeedCandidate[]> {
+  const r = await send<{ candidates: FeedCandidate[] }>('POST', '/api/feeds/discover', { url });
+  return r.candidates;
+}
+
+export async function refreshFeed(id: string): Promise<{ status: string; added: number; feed: Feed }> {
+  return send('POST', `/api/feeds/${id}/refresh`);
+}
+
 export function deleteFeed(id: string): Promise<{ status: string }> {
   return send('DELETE', `/api/feeds/${id}`);
+}
+
+export type Account = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  hasPassword: boolean;
+};
+
+export function getAccount(): Promise<Account> {
+  return getJSON<Account>('/api/account');
+}
+
+export function updateAccount(patch: { name: string; email: string }): Promise<Account> {
+  return send<Account>('PATCH', '/api/account', patch);
+}
+
+export function updatePassword(patch: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<{ status: string }> {
+  return send('PATCH', '/api/account/password', patch);
 }
 
 export type AdminUser = {

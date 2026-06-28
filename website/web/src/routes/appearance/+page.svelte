@@ -8,6 +8,9 @@
     FONT_SCALES,
     BACKGROUNDS,
     FONT_FAMILIES,
+    IMAGE_ASPECTS,
+    IMAGE_FITS,
+    IMAGE_POSITIONS,
   } from '$lib/appearance';
   import { t } from '$lib/i18n';
   import type { Article } from '$lib/api';
@@ -15,6 +18,23 @@
 
   const a = appearance;
   const accentPresets = ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#64748b'];
+  const previewImage = `data:image/svg+xml,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#38bdf8"/>
+          <stop offset="0.55" stop-color="#2563eb"/>
+          <stop offset="1" stop-color="#111827"/>
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="800" fill="url(#sky)"/>
+      <circle cx="930" cy="170" r="72" fill="#facc15" opacity="0.9"/>
+      <path d="M0 640 L220 430 L390 600 L560 360 L780 625 L965 455 L1200 650 L1200 800 L0 800 Z" fill="#0f172a" opacity="0.85"/>
+      <path d="M0 690 C180 620 310 700 490 640 C690 575 835 685 1200 610 L1200 800 L0 800 Z" fill="#16a34a" opacity="0.88"/>
+      <rect x="92" y="92" width="470" height="88" rx="16" fill="#ffffff" opacity="0.88"/>
+      <rect x="126" y="124" width="330" height="22" rx="11" fill="#0f172a" opacity="0.8"/>
+    </svg>
+  `)}`;
 
   // Two sample articles so the preview shows list spacing/density too.
   const samples: Article[] = [
@@ -25,7 +45,7 @@
       description:
         'A live preview of how article cards render with your current theme, design skin, card style, density, fonts and visible fields. Every change here is instant.',
       content: null,
-      image_url: null,
+      image_url: previewImage,
       pub_date: new Date().toISOString(),
       guid: 'p1',
       source_feed_id: null,
@@ -38,7 +58,7 @@
       link: 'https://example.com/2',
       description: 'Read articles dim slightly so your unread items stand out at a glance.',
       content: null,
-      image_url: null,
+      image_url: previewImage,
       pub_date: new Date(Date.now() - 3600_000).toISOString(),
       guid: 'p2',
       source_feed_id: null,
@@ -190,6 +210,48 @@
         class="w-full max-w-xs"
         oninput={(e) => a.patch({ descriptionLines: Number((e.target as HTMLInputElement).value) })}
       />
+    </section>
+
+    <section>
+      <h2 class="mb-2 text-sm font-medium text-muted">{$t('appearance.imageFormat')}</h2>
+      <div class="grid gap-3 sm:grid-cols-3">
+        <div>
+          <p class="mb-2 text-xs text-muted">{$t('appearance.imageAspect')}</p>
+          <div class="flex flex-wrap gap-2">
+            {#each IMAGE_ASPECTS as opt}
+              <button
+                class="surface px-3 py-1.5 text-sm capitalize"
+                style={$a.imageAspect === opt ? 'outline: 2px solid var(--accent);' : ''}
+                onclick={() => a.patch({ imageAspect: opt })}>{opt}</button
+              >
+            {/each}
+          </div>
+        </div>
+        <div>
+          <p class="mb-2 text-xs text-muted">{$t('appearance.imageFit')}</p>
+          <div class="flex flex-wrap gap-2">
+            {#each IMAGE_FITS as opt}
+              <button
+                class="surface px-3 py-1.5 text-sm capitalize"
+                style={$a.imageFit === opt ? 'outline: 2px solid var(--accent);' : ''}
+                onclick={() => a.patch({ imageFit: opt })}>{opt}</button
+              >
+            {/each}
+          </div>
+        </div>
+        <div>
+          <p class="mb-2 text-xs text-muted">{$t('appearance.imagePosition')}</p>
+          <div class="flex flex-wrap gap-2">
+            {#each IMAGE_POSITIONS as opt}
+              <button
+                class="surface px-3 py-1.5 text-sm capitalize"
+                style={$a.imagePosition === opt ? 'outline: 2px solid var(--accent);' : ''}
+                onclick={() => a.patch({ imagePosition: opt })}>{opt}</button
+              >
+            {/each}
+          </div>
+        </div>
+      </div>
     </section>
 
     <section>
