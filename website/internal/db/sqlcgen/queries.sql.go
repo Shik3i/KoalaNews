@@ -524,7 +524,7 @@ func (q *Queries) GetUserFeedByURL(ctx context.Context, arg GetUserFeedByURLPara
 }
 
 const getUserPreference = `-- name: GetUserPreference :one
-SELECT user_id, theme, design, card_style, density, font_scale, background, font_family, accent_color, image_aspect, image_fit, image_position, show_images, show_source, show_date, show_description, show_read_more, description_lines, updated_at FROM user_preferences WHERE user_id = ? LIMIT 1
+SELECT user_id, theme, design, article_layout, card_style, density, font_scale, date_format, time_format, background, font_family, accent_color, image_aspect, image_fit, image_position, show_images, show_source, show_date, show_description, show_read_more, description_lines, updated_at FROM user_preferences WHERE user_id = ? LIMIT 1
 `
 
 func (q *Queries) GetUserPreference(ctx context.Context, userID string) (UserPreference, error) {
@@ -534,9 +534,12 @@ func (q *Queries) GetUserPreference(ctx context.Context, userID string) (UserPre
 		&i.UserID,
 		&i.Theme,
 		&i.Design,
+		&i.ArticleLayout,
 		&i.CardStyle,
 		&i.Density,
 		&i.FontScale,
+		&i.DateFormat,
+		&i.TimeFormat,
 		&i.Background,
 		&i.FontFamily,
 		&i.AccentColor,
@@ -1304,7 +1307,7 @@ func (q *Queries) SetUserRoleBanned(ctx context.Context, arg SetUserRoleBannedPa
 }
 
 const topSourceFeedsByArticleCount = `-- name: TopSourceFeedsByArticleCount :many
-SELECT sf.title, sf.url, count(a.id) AS article_count
+SELECT sf.title, sf.url, sf.language, count(a.id) AS article_count
 FROM source_feeds sf
 LEFT JOIN articles a ON a.source_feed_id = sf.id
 GROUP BY sf.id
@@ -1315,6 +1318,7 @@ LIMIT ?
 type TopSourceFeedsByArticleCountRow struct {
 	Title        *string `json:"title"`
 	Url          string  `json:"url"`
+	Language     string  `json:"language"`
 	ArticleCount int64   `json:"article_count"`
 }
 
@@ -1327,7 +1331,12 @@ func (q *Queries) TopSourceFeedsByArticleCount(ctx context.Context, limit int64)
 	var items []TopSourceFeedsByArticleCountRow
 	for rows.Next() {
 		var i TopSourceFeedsByArticleCountRow
-		if err := rows.Scan(&i.Title, &i.Url, &i.ArticleCount); err != nil {
+		if err := rows.Scan(
+			&i.Title,
+			&i.Url,
+			&i.Language,
+			&i.ArticleCount,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1497,13 +1506,13 @@ func (q *Queries) UpsertSourceFeed(ctx context.Context, arg UpsertSourceFeedPara
 
 const upsertUserPreference = `-- name: UpsertUserPreference :exec
 INSERT INTO user_preferences (
-  user_id, theme, design, card_style, density, font_scale, background, font_family, accent_color,
+  user_id, theme, design, article_layout, card_style, density, font_scale, date_format, time_format, background, font_family, accent_color,
   image_aspect, image_fit, image_position,
   show_images, show_source, show_date, show_description, show_read_more, description_lines, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
 ON CONFLICT(user_id) DO UPDATE SET
-  theme = excluded.theme, design = excluded.design, card_style = excluded.card_style,
-  density = excluded.density, font_scale = excluded.font_scale, background = excluded.background,
+  theme = excluded.theme, design = excluded.design, article_layout = excluded.article_layout, card_style = excluded.card_style,
+  density = excluded.density, font_scale = excluded.font_scale, date_format = excluded.date_format, time_format = excluded.time_format, background = excluded.background,
   font_family = excluded.font_family, accent_color = excluded.accent_color,
   image_aspect = excluded.image_aspect, image_fit = excluded.image_fit, image_position = excluded.image_position,
   show_images = excluded.show_images, show_source = excluded.show_source, show_date = excluded.show_date,
@@ -1515,9 +1524,12 @@ type UpsertUserPreferenceParams struct {
 	UserID           string `json:"user_id"`
 	Theme            string `json:"theme"`
 	Design           string `json:"design"`
+	ArticleLayout    string `json:"article_layout"`
 	CardStyle        string `json:"card_style"`
 	Density          string `json:"density"`
 	FontScale        string `json:"font_scale"`
+	DateFormat       string `json:"date_format"`
+	TimeFormat       string `json:"time_format"`
 	Background       string `json:"background"`
 	FontFamily       string `json:"font_family"`
 	AccentColor      string `json:"accent_color"`
@@ -1537,9 +1549,12 @@ func (q *Queries) UpsertUserPreference(ctx context.Context, arg UpsertUserPrefer
 		arg.UserID,
 		arg.Theme,
 		arg.Design,
+		arg.ArticleLayout,
 		arg.CardStyle,
 		arg.Density,
 		arg.FontScale,
+		arg.DateFormat,
+		arg.TimeFormat,
 		arg.Background,
 		arg.FontFamily,
 		arg.AccentColor,

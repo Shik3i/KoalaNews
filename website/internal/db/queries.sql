@@ -20,7 +20,7 @@ UPDATE users SET password = ? WHERE id = ?;
 SELECT count(*) FROM users;
 
 -- name: TopSourceFeedsByArticleCount :many
-SELECT sf.title, sf.url, count(a.id) AS article_count
+SELECT sf.title, sf.url, sf.language, count(a.id) AS article_count
 FROM source_feeds sf
 LEFT JOIN articles a ON a.source_feed_id = sf.id
 GROUP BY sf.id
@@ -256,13 +256,13 @@ SELECT * FROM user_preferences WHERE user_id = ? LIMIT 1;
 
 -- name: UpsertUserPreference :exec
 INSERT INTO user_preferences (
-  user_id, theme, design, card_style, density, font_scale, background, font_family, accent_color,
+  user_id, theme, design, article_layout, card_style, density, font_scale, date_format, time_format, background, font_family, accent_color,
   image_aspect, image_fit, image_position,
   show_images, show_source, show_date, show_description, show_read_more, description_lines, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
 ON CONFLICT(user_id) DO UPDATE SET
-  theme = excluded.theme, design = excluded.design, card_style = excluded.card_style,
-  density = excluded.density, font_scale = excluded.font_scale, background = excluded.background,
+  theme = excluded.theme, design = excluded.design, article_layout = excluded.article_layout, card_style = excluded.card_style,
+  density = excluded.density, font_scale = excluded.font_scale, date_format = excluded.date_format, time_format = excluded.time_format, background = excluded.background,
   font_family = excluded.font_family, accent_color = excluded.accent_color,
   image_aspect = excluded.image_aspect, image_fit = excluded.image_fit, image_position = excluded.image_position,
   show_images = excluded.show_images, show_source = excluded.show_source, show_date = excluded.show_date,

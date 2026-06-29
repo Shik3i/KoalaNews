@@ -28,12 +28,22 @@ var DefaultFeeds = map[string]struct{ Title, URL string }{
 }
 
 func NormalizeLanguage(v string) string {
-	switch v {
-	case "de", "fr":
-		return v
-	default:
-		return "en"
+	code := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(v, "_", "-")))
+	if supportedFeedLanguages[code] {
+		return code
 	}
+	return "en"
+}
+
+var supportedFeedLanguages = map[string]bool{
+	"en": true, "de": true, "fr": true, "es": true, "it": true,
+	"pt": true, "pt-br": true, "nl": true, "pl": true, "sv": true,
+	"no": true, "da": true, "fi": true, "is": true, "cs": true,
+	"sk": true, "sl": true, "hr": true, "hu": true, "ro": true,
+	"bg": true, "el": true, "tr": true, "ru": true, "uk": true,
+	"ar": true, "he": true, "fa": true, "hi": true, "bn": true,
+	"ur": true, "id": true, "ms": true, "th": true, "vi": true,
+	"zh": true, "zh-tw": true, "ja": true, "ko": true,
 }
 
 // FetchAndStore fetches a source feed, parses it, and inserts new (deduplicated)

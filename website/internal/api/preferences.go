@@ -12,9 +12,12 @@ type prefsView struct {
 	Theme            string `json:"theme"`
 	Design           string `json:"design"`
 	Accent           string `json:"accent"`
+	ArticleLayout    string `json:"articleLayout"`
 	CardStyle        string `json:"cardStyle"`
 	Density          string `json:"density"`
 	FontScale        string `json:"fontScale"`
+	DateFormat       string `json:"dateFormat"`
+	TimeFormat       string `json:"timeFormat"`
 	Background       string `json:"background"`
 	FontFamily       string `json:"fontFamily"`
 	ImageAspect      string `json:"imageAspect"`
@@ -30,8 +33,8 @@ type prefsView struct {
 
 func defaultPrefs() prefsView {
 	return prefsView{
-		Theme: "system", Design: "clean", Accent: "#2563eb", CardStyle: "magazine",
-		Density: "comfortable", FontScale: "medium", Background: "flat", FontFamily: "system",
+		Theme: "system", Design: "clean", Accent: "#2563eb", ArticleLayout: "list", CardStyle: "compact",
+		Density: "comfortable", FontScale: "medium", DateFormat: "month", TimeFormat: "24h", Background: "flat", FontFamily: "system",
 		ImageAspect: "wide", ImageFit: "cover", ImagePosition: "center",
 		DescriptionLines: 3,
 		ShowImages:       true, ShowSource: true, ShowDate: true, ShowDescription: true, ShowReadMore: true,
@@ -43,9 +46,12 @@ func toPrefsView(p sqlcgen.UserPreference) prefsView {
 		Theme:            p.Theme,
 		Design:           p.Design,
 		Accent:           p.AccentColor,
+		ArticleLayout:    p.ArticleLayout,
 		CardStyle:        p.CardStyle,
 		Density:          p.Density,
 		FontScale:        p.FontScale,
+		DateFormat:       p.DateFormat,
+		TimeFormat:       p.TimeFormat,
 		Background:       p.Background,
 		FontFamily:       p.FontFamily,
 		ImageAspect:      p.ImageAspect,
@@ -91,9 +97,12 @@ func (s *Server) handlePutPreferences(w http.ResponseWriter, r *http.Request) {
 		UserID:           u.ID,
 		Theme:            in.Theme,
 		Design:           in.Design,
+		ArticleLayout:    in.ArticleLayout,
 		CardStyle:        in.CardStyle,
 		Density:          in.Density,
 		FontScale:        in.FontScale,
+		DateFormat:       in.DateFormat,
+		TimeFormat:       in.TimeFormat,
 		Background:       in.Background,
 		FontFamily:       in.FontFamily,
 		AccentColor:      in.Accent,
@@ -118,9 +127,12 @@ func (s *Server) handlePutPreferences(w http.ResponseWriter, r *http.Request) {
 func sanitizePrefs(p prefsView) prefsView {
 	p.Theme = oneOf(p.Theme, []string{"system", "light", "dark", "sepia", "midnight", "forest", "rose", "nord", "contrast"}, "system")
 	p.Design = oneOf(p.Design, []string{"clean", "newspaper", "terminal", "soft", "glass", "retrowave", "high-contrast"}, "clean")
-	p.CardStyle = oneOf(p.CardStyle, []string{"magazine", "compact", "headline"}, "magazine")
+	p.ArticleLayout = oneOf(p.ArticleLayout, []string{"list", "grid"}, "list")
+	p.CardStyle = oneOf(p.CardStyle, []string{"magazine", "compact", "headline"}, "compact")
 	p.Density = oneOf(p.Density, []string{"comfortable", "compact", "dense"}, "comfortable")
 	p.FontScale = oneOf(p.FontScale, []string{"small", "medium", "large"}, "medium")
+	p.DateFormat = oneOf(p.DateFormat, []string{"month", "numeric", "iso"}, "month")
+	p.TimeFormat = oneOf(p.TimeFormat, []string{"24h", "12h"}, "24h")
 	p.Background = oneOf(p.Background, []string{"flat", "soft-glow", "gradient", "dotted"}, "flat")
 	p.FontFamily = oneOf(p.FontFamily, []string{"system", "serif", "mono"}, "system")
 	p.ImageAspect = oneOf(p.ImageAspect, []string{"wide", "square", "portrait", "natural"}, "wide")

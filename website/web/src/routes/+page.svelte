@@ -9,15 +9,13 @@
     listSmartFeeds,
     listFeeds,
     createSmartFeed,
-    getArticlesOverview,
     type Article,
     type Category,
     type SmartFeed,
     type Feed,
-    type Story,
-    type DaySummary,
   } from '$lib/api';
   import { user } from '$lib/auth';
+  import { appearance } from '$lib/appearance';
   import { locale, t } from '$lib/i18n';
   import ArticleCard from '$lib/components/ArticleCard.svelte';
   import FeedPicker from '$lib/components/FeedPicker.svelte';
@@ -37,10 +35,9 @@
   let unreadOnly = $state(false);
   let sort = $state<'newest' | 'oldest' | 'title' | 'source'>('newest');
   let hasMore = $state(false);
-  let topStories = $state<Story[]>([]);
-  let daySummaries = $state<DaySummary[]>([]);
 
   const pageSize = 40;
+  const a = appearance;
 
   function articleOptions(offset = 0) {
     return $user
@@ -71,11 +68,6 @@
       const next = await listArticles(articleOptions(reset ? 0 : articles.length));
       articles = reset ? next : [...articles, ...next];
       hasMore = next.length === pageSize;
-      if (reset) {
-        const overview = await getArticlesOverview(articleOptions(0));
-        topStories = overview.topStories;
-        daySummaries = overview.days;
-      }
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load';
     } finally {
@@ -166,66 +158,70 @@
   const unreadCount = $derived(articles.filter((a) => !a.read).length);
 </script>
 
+<svelte:head>
+  <title>KoalaNews | Personalized RSS news reader</title>
+  <meta
+    name="description"
+    content="Read RSS articles from your favorite sources in a clean, customizable multilingual news reader."
+  />
+  <meta property="og:title" content="KoalaNews | Personalized RSS news reader" />
+  <meta
+    property="og:description"
+    content="Read RSS articles from your favorite sources in a clean, customizable multilingual news reader."
+  />
+</svelte:head>
+
 {#if $user}
-  <div class="mb-4 flex items-center justify-between">
-    <h1 class="text-xl font-semibold">
-      {$t('home.yourFeed')}
-      {#if unreadCount > 0}<span class="text-sm font-normal text-muted">· {unreadCount} {$t('home.unread')}</span>{/if}
-    </h1>
-    {#if unreadCount > 0}
-      <button class="surface px-3 py-1.5 text-sm" onclick={markAll}>{$t('home.markAllRead')}</button>
-    {/if}
-  </div>
-  <div class="mb-4 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
-    <input
-      class="surface min-w-0 px-3 py-2 text-sm"
-      style="background: var(--bg-elevated); color: var(--text);"
-      placeholder={$t('home.searchArticles')}
-      bind:value={query}
-    />
-    <select
-      class="surface px-3 py-2 text-sm"
-      style="background: var(--bg-elevated); color: var(--text);"
-      bind:value={sort}
-    >
-      <option value="newest">{$t('home.sortNewest')}</option>
-      <option value="oldest">{$t('home.sortOldest')}</option>
-      <option value="title">{$t('home.sortTitle')}</option>
-      <option value="source">{$t('home.sortSource')}</option>
-    </select>
-    <label class="surface flex items-center gap-2 px-3 py-2 text-sm">
-      <input type="checkbox" bind:checked={unreadOnly} />
-      {$t('home.unreadOnly')}
-    </label>
-    <button class="surface px-3 py-2 text-sm" onclick={() => load(true)}>{$t('home.refresh')}</button>
-  </div>
+  <section class="home-controls">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h1 class="text-xl font-semibold">
+        {$t('home.yourFeed')}
+        {#if unreadCount > 0}<span class="text-sm font-normal text-muted">· {unreadCount} {$t('home.unread')}</span>{/if}
+      </h1>
+      {#if unreadCount > 0}
+        <button class="surface control-button" onclick={markAll}>{$t('home.markAllRead')}</button>
+      {/if}
+    </div>
+    <div class="home-search-row">
+      <input class="surface control-input" placeholder={$t('home.searchArticles')} bind:value={query} />
+      <select class="surface control-select" bind:value={sort}>
+        <option value="newest">{$t('home.sortNewest')}</option>
+        <option value="oldest">{$t('home.sortOldest')}</option>
+        <option value="title">{$t('home.sortTitle')}</option>
+        <option value="source">{$t('home.sortSource')}</option>
+      </select>
+      <label class="surface control-button">
+        <input type="checkbox" bind:checked={unreadOnly} />
+        {$t('home.unreadOnly')}
+      </label>
+      <button class="surface control-button" onclick={() => load(true)}>{$t('home.refresh')}</button>
+    </div>
+  </section>
   {#if categories.length > 0 || smartFeeds.length > 0 || feeds.length > 0}
-    <div class="mb-5 flex flex-wrap items-center gap-2">
+    <div class="feed-chips">
       <button
-        class="surface px-3 py-1.5 text-sm"
-        style={activeCategory === '' && activeSmartFeed === '' && adhocFeedIds.length === 0
-          ? 'outline: 2px solid var(--accent);'
-          : ''}
+        class="surface chip"
+        class:chip-active={activeCategory === '' && activeSmartFeed === '' && adhocFeedIds.length === 0}
         onclick={() => selectCategory('')}>{$t('home.all')}</button
       >
       {#each categories as cat (cat.id)}
         <button
-          class="surface px-3 py-1.5 text-sm"
-          style={activeCategory === cat.id ? 'outline: 2px solid var(--accent);' : ''}
+          class="surface chip"
+          class:chip-active={activeCategory === cat.id}
           onclick={() => selectCategory(cat.id)}>{cat.name}</button
         >
       {/each}
       {#each smartFeeds as sf (sf.id)}
         <button
-          class="surface px-3 py-1.5 text-sm"
-          style={activeSmartFeed === sf.id ? 'outline: 2px solid var(--accent);' : ''}
+          class="surface chip"
+          class:chip-active={activeSmartFeed === sf.id}
           onclick={() => selectSmartFeed(sf.id)}>🔍 {sf.name}</button
         >
       {/each}
       {#if feeds.length > 0}
         <button
-          class="surface px-3 py-1.5 text-sm"
-          style={adhocFeedIds.length > 0 ? 'outline: 2px solid var(--accent);' : ''}
+          class="surface chip"
+          class:chip-active={adhocFeedIds.length > 0}
           onclick={openFeedPicker}>{$t('home.feeds')} ▾{adhocFeedIds.length ? ` ${adhocFeedIds.length}` : ''}</button
         >
       {/if}
@@ -247,59 +243,15 @@
     {/if}
   {/if}
 {:else}
-  <div class="mb-4 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
-    <input
-      class="surface min-w-0 px-3 py-2 text-sm"
-      style="background: var(--bg-elevated); color: var(--text);"
-      placeholder={$t('home.searchArticles')}
-      bind:value={query}
-    />
-    <select
-      class="surface px-3 py-2 text-sm"
-      style="background: var(--bg-elevated); color: var(--text);"
-      bind:value={sort}
-    >
+  <div class="home-controls home-search-row">
+    <input class="surface control-input" placeholder={$t('home.searchArticles')} bind:value={query} />
+    <select class="surface control-select" bind:value={sort}>
       <option value="newest">{$t('home.sortNewest')}</option>
       <option value="oldest">{$t('home.sortOldest')}</option>
       <option value="title">{$t('home.sortTitle')}</option>
       <option value="source">{$t('home.sortSource')}</option>
     </select>
   </div>
-{/if}
-
-{#if !loading && (topStories.length > 0 || daySummaries.length > 0)}
-  <section class="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
-    {#if topStories.length > 0}
-      <div class="surface px-4 py-3">
-        <h2 class="mb-2 text-sm font-medium text-muted">{$t('home.topStories')}</h2>
-        <div class="flex flex-wrap gap-2">
-          {#each topStories as story (story.key)}
-            <button
-              class="surface max-w-full px-3 py-1.5 text-left text-sm"
-              title={story.title}
-              onclick={() => (query = story.title)}
-            >
-              <span class="font-medium">{story.title}</span>
-              {#if story.count > 1}<span class="ml-1 text-muted">({story.count})</span>{/if}
-            </button>
-          {/each}
-        </div>
-      </div>
-    {/if}
-    {#if daySummaries.length > 0}
-      <div class="surface px-4 py-3">
-        <h2 class="mb-2 text-sm font-medium text-muted">{$t('home.dailyOverview')}</h2>
-        <div class="space-y-1 text-sm">
-          {#each daySummaries as day (day.date)}
-            <div class="flex justify-between gap-3">
-              <span>{day.date}</span>
-              <span class="text-muted">{day.count}</span>
-            </div>
-          {/each}
-        </div>
-      </div>
-    {/if}
-  </section>
 {/if}
 
 {#if loading}
@@ -312,14 +264,24 @@
   <p class="text-muted">⚠️ {error}</p>
 {:else if articles.length === 0}
   {#if $user}
-    <p class="text-muted">
-      {$t('home.noArticlesUser')} <a class="link-accent" href="/dashboard">{$t('home.addFeeds')}</a> {$t('home.toGetStarted')}
-    </p>
+    <section class="surface empty-state">
+      <div>
+        <h2>{$t('home.emptyUserTitle')}</h2>
+        <p class="mt-2">
+          {$t('home.noArticlesUser')} <a class="link-accent" href="/dashboard">{$t('home.addFeeds')}</a> {$t('home.toGetStarted')}
+        </p>
+      </div>
+    </section>
   {:else}
-    <p class="text-muted">{$t('home.noArticlesGuest')}</p>
+    <section class="surface empty-state">
+      <div>
+        <h2>{$t('home.emptyGuestTitle')}</h2>
+        <p class="mt-2">{$t('home.noArticlesGuest')}</p>
+      </div>
+    </section>
   {/if}
 {:else}
-  <div class="flex flex-col" style="gap: var(--density-gap);">
+  <div class:article-grid={$a.articleLayout === 'grid'} class:article-list={$a.articleLayout === 'list'}>
     {#each articles as article (article.id)}
       <ArticleCard {article} ontoggleread={$user ? (read) => toggleRead(article, read) : undefined} />
     {/each}

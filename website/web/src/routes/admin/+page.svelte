@@ -79,6 +79,12 @@
   );
 </script>
 
+<svelte:head>
+  <title>Admin | KoalaNews</title>
+  <meta name="description" content="KoalaNews administration." />
+  <meta name="robots" content="noindex,nofollow" />
+</svelte:head>
+
 <h1 class="mb-5 text-2xl font-semibold">{$t('admin.title')}</h1>
 
 {#if error}

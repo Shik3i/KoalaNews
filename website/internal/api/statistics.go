@@ -5,6 +5,7 @@ import "net/http"
 type topFeedView struct {
 	Title        *string `json:"title"`
 	URL          string  `json:"url"`
+	Language     string  `json:"language"`
 	ArticleCount int64   `json:"articleCount"`
 }
 
@@ -23,7 +24,7 @@ func (s *Server) handleStatistics(w http.ResponseWriter, r *http.Request) {
 	}
 	topFeeds := make([]topFeedView, 0, len(rows))
 	for _, row := range rows {
-		topFeeds = append(topFeeds, topFeedView{Title: row.Title, URL: row.Url, ArticleCount: row.ArticleCount})
+		topFeeds = append(topFeeds, topFeedView{Title: row.Title, URL: row.Url, Language: row.Language, ArticleCount: row.ArticleCount})
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{

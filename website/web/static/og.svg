@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0f1115"/>
+  <path d="M0 500c160-70 260 40 430-25 190-72 330 36 510-34 105-41 170-44 260-10v199H0z" fill="#171a21"/>
+  <circle cx="190" cy="198" r="86" fill="#8d98a7"/>
+  <circle cx="418" cy="198" r="86" fill="#8d98a7"/>
+  <circle cx="304" cy="300" r="178" fill="#c8d0da"/>
+  <circle cx="244" cy="266" r="24" fill="#14171a"/>
+  <circle cx="364" cy="266" r="24" fill="#14171a"/>
+  <path d="M272 326h64l-32 38z" fill="#14171a"/>
+  <path d="M232 404c46 38 98 38 144 0" fill="none" stroke="#14171a" stroke-width="28" stroke-linecap="round"/>
+  <text x="560" y="260" fill="#f8fafc" font-family="Inter,system-ui,sans-serif" font-size="96" font-weight="800">KoalaNews</text>
+  <text x="565" y="340" fill="#b3bdcf" font-family="Inter,system-ui,sans-serif" font-size="38">A calm RSS reader across languages.</text>
+  <rect x="565" y="398" width="330" height="18" rx="9" fill="#2563eb"/>
+</svg>

@@ -118,9 +118,12 @@ type UserPreference struct {
 	UserID           string `json:"user_id"`
 	Theme            string `json:"theme"`
 	Design           string `json:"design"`
+	ArticleLayout    string `json:"article_layout"`
 	CardStyle        string `json:"card_style"`
 	Density          string `json:"density"`
 	FontScale        string `json:"font_scale"`
+	DateFormat       string `json:"date_format"`
+	TimeFormat       string `json:"time_format"`
 	Background       string `json:"background"`
 	FontFamily       string `json:"font_family"`
 	AccentColor      string `json:"accent_color"`

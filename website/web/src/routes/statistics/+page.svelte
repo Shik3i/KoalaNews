@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { getStatistics, type Statistics } from '$lib/api';
   import { feedLabel } from '$lib/feeds';
+  import { feedLanguageFlag } from '$lib/languages';
   import { t } from '$lib/i18n';
 
   let stats = $state<Statistics | null>(null);
@@ -25,6 +26,13 @@
       : [],
   );
 </script>
+
+<svelte:head>
+  <title>Statistics | KoalaNews</title>
+  <meta name="description" content="Public KoalaNews statistics for users, feeds and article volume." />
+  <meta property="og:title" content="Statistics | KoalaNews" />
+  <meta property="og:description" content="Public KoalaNews statistics for users, feeds and article volume." />
+</svelte:head>
 
 <h1 class="mb-1 text-2xl font-semibold">{$t('statistics.title')}</h1>
 <p class="mb-6 text-sm text-muted">{$t('statistics.subtitle')}</p>
@@ -57,7 +65,7 @@
           <div class="flex items-center gap-3 min-w-0">
             <span class="text-muted text-sm w-6 shrink-0">#{i + 1}</span>
             <div class="min-w-0">
-              <p class="truncate font-medium">{feedLabel(feed)}</p>
+              <p class="truncate font-medium">{feedLanguageFlag(feed.language)} {feedLabel(feed)}</p>
               <p class="truncate text-xs text-muted">{feed.url}</p>
             </div>
           </div>

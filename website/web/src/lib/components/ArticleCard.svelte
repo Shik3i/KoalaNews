@@ -23,7 +23,26 @@
     if (!s) return '';
     const d = new Date(s);
     if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    if ($a.dateFormat === 'iso') {
+      const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const time = $a.timeFormat === '12h'
+        ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true })
+        : `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      return `${date}, ${time}`;
+    }
+    const dateOpts = $a.dateFormat === 'numeric'
+      ? { year: 'numeric', month: '2-digit', day: '2-digit' }
+      : { month: 'short', day: 'numeric' };
+    return d.toLocaleDateString(undefined, {
+      ...dateOpts,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: $a.timeFormat === '12h',
+    } as Intl.DateTimeFormatOptions);
+  }
+
+  function pad(n: number): string {
+    return String(n).padStart(2, '0');
   }
 
   // Cache-proxied image via the Go backend (never hot-links third parties).
@@ -33,13 +52,19 @@
     return `/api/image?url=${encodeURIComponent(url)}`;
   }
 
-  function imageStyle(cardStyle: string, aspect: string, fit: string, position: string): string {
+  function imageStyle(
+    cardStyle: string,
+    articleLayout: string,
+    aspect: string,
+    fit: string,
+    position: string,
+  ): string {
     const base = [
       `object-fit:${fit}`,
       `object-position:${position}`,
       'background:var(--bg-sunken)',
     ];
-    if (cardStyle === 'compact') {
+    if (cardStyle === 'compact' && articleLayout === 'list') {
       const sizes: Record<string, string> = {
         wide: 'width:8rem;height:5rem',
         square: 'width:6rem;height:6rem',
@@ -62,10 +87,11 @@
   class="surface overflow-hidden transition-shadow hover:shadow-sm"
   style="padding: var(--card-pad); opacity: {article.read ? 0.55 : 1};"
   data-card-style={$a.cardStyle}
+  data-article-layout={$a.articleLayout}
   data-design={$a.design}
   data-read={article.read}
 >
-  <div class="flex gap-3" class:flex-col={$a.cardStyle === 'magazine'}>
+  <div class="flex gap-3" class:flex-col={$a.cardStyle === 'magazine' || $a.articleLayout === 'grid'}>
     {#if $a.showImages && $a.cardStyle !== 'headline' && article.image_url}
       <img
         src={imgSrc(article.image_url)}
@@ -73,7 +99,7 @@
         loading="lazy"
         class="w-full object-cover"
         class:rounded-md={true}
-        style={imageStyle($a.cardStyle, $a.imageAspect, $a.imageFit, $a.imagePosition)}
+        style={imageStyle($a.cardStyle, $a.articleLayout, $a.imageAspect, $a.imageFit, $a.imagePosition)}
       />
     {/if}
 

@@ -21,9 +21,12 @@ export const DESIGNS = [
   'retrowave',
   'high-contrast',
 ] as const;
+export const ARTICLE_LAYOUTS = ['list', 'grid'] as const;
 export const CARD_STYLES = ['magazine', 'compact', 'headline'] as const;
 export const DENSITIES = ['comfortable', 'compact', 'dense'] as const;
 export const FONT_SCALES = ['small', 'medium', 'large'] as const;
+export const DATE_FORMATS = ['month', 'numeric', 'iso'] as const;
+export const TIME_FORMATS = ['24h', '12h'] as const;
 export const BACKGROUNDS = ['flat', 'soft-glow', 'gradient', 'dotted'] as const;
 export const FONT_FAMILIES = ['system', 'serif', 'mono'] as const;
 export const IMAGE_ASPECTS = ['wide', 'square', 'portrait', 'natural'] as const;
@@ -33,9 +36,12 @@ export const IMAGE_POSITIONS = ['top', 'center', 'bottom'] as const;
 export type Appearance = {
   theme: (typeof THEMES)[number];
   design: (typeof DESIGNS)[number];
+  articleLayout: (typeof ARTICLE_LAYOUTS)[number];
   cardStyle: (typeof CARD_STYLES)[number];
   density: (typeof DENSITIES)[number];
   fontScale: (typeof FONT_SCALES)[number];
+  dateFormat: (typeof DATE_FORMATS)[number];
+  timeFormat: (typeof TIME_FORMATS)[number];
   background: (typeof BACKGROUNDS)[number];
   fontFamily: (typeof FONT_FAMILIES)[number];
   imageAspect: (typeof IMAGE_ASPECTS)[number];
@@ -53,9 +59,12 @@ export type Appearance = {
 export const DEFAULT_APPEARANCE: Appearance = {
   theme: 'system',
   design: 'clean',
-  cardStyle: 'magazine',
+  articleLayout: 'list',
+  cardStyle: 'compact',
   density: 'comfortable',
   fontScale: 'medium',
+  dateFormat: 'month',
+  timeFormat: '24h',
   background: 'flat',
   fontFamily: 'system',
   imageAspect: 'wide',
@@ -89,6 +98,7 @@ export function apply(a: Appearance) {
   const el = document.documentElement;
   el.dataset.theme = a.theme;
   el.dataset.design = a.design;
+  el.dataset.articleLayout = a.articleLayout;
   el.dataset.cardStyle = a.cardStyle;
   el.dataset.density = a.density;
   el.dataset.fontScale = a.fontScale;

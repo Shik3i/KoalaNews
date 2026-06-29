@@ -24,6 +24,7 @@
   } from '$lib/api';
   import FeedPicker from '$lib/components/FeedPicker.svelte';
   import { feedLabel } from '$lib/feeds';
+  import { FEED_LANGUAGES, feedLanguageFlag, feedLanguageLabel } from '$lib/languages';
   import { locale, t } from '$lib/i18n';
 
   let feeds = $state<Feed[]>([]);
@@ -45,6 +46,7 @@
   let renameTitles = $state<Record<string, string>>({});
   let renamingFeed = $state('');
   let refreshingFeed = $state('');
+  let feedLanguage = $state('en');
 
   async function onImportFile(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -55,7 +57,7 @@
     error = null;
     try {
       const text = await file.text();
-      const r = await importOPML(text, $locale);
+      const r = await importOPML(text, feedLanguage);
       importMsg = `Imported ${r.added} feed(s), ${r.skipped} already present, ${r.failed} failed.`;
       await refresh();
     } catch (err) {
@@ -88,7 +90,7 @@
     busy = true;
     error = null;
     try {
-      const feed = await addFeed(url.trim(), $locale);
+      const feed = await addFeed(url.trim(), feedLanguage);
       feeds = [feed, ...feeds];
       renameTitles = { ...renameTitles, [feed.id]: feed.custom_title ?? '' };
       url = '';
@@ -120,7 +122,7 @@
     busy = true;
     error = null;
     try {
-      const feed = await addFeed(candidate.url, $locale);
+      const feed = await addFeed(candidate.url, feedLanguage);
       feeds = [feed, ...feeds];
       renameTitles = { ...renameTitles, [feed.id]: feed.custom_title ?? '' };
       url = '';
@@ -260,7 +262,26 @@
     return parts.join(' · ');
   }
 
+  const failedFeeds = $derived(feeds.filter((feed) => feed.lastError).length);
+  const pendingFeeds = $derived(feeds.filter((feed) => !feed.lastFetchedAt && !feed.lastError).length);
+  const healthyFeeds = $derived(Math.max(0, feeds.length - failedFeeds - pendingFeeds));
+
+  function feedHealth(feed: Feed): { label: string; tone: string } {
+    if (feed.lastError) return { label: $t('dashboard.healthError'), tone: 'error' };
+    if (!feed.lastFetchedAt) return { label: $t('dashboard.healthPending'), tone: 'pending' };
+    return { label: $t('dashboard.healthOk'), tone: 'ok' };
+  }
+
+  function formatFeedDate(value: string): string {
+    return new Intl.DateTimeFormat($locale, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      hour12: false,
+    }).format(new Date(value));
+  }
+
   onMount(() => {
+    feedLanguage = $locale;
     // Redirect guests once auth state is known.
     const unsub = authReady.subscribe((ready) => {
       if (ready && !$user) goto('/login');
@@ -270,10 +291,16 @@
   });
 </script>
 
+<svelte:head>
+  <title>Dashboard | KoalaNews</title>
+  <meta name="description" content="Manage KoalaNews feeds, categories, smart feeds and OPML imports." />
+  <meta name="robots" content="noindex,nofollow" />
+</svelte:head>
+
 <h1 class="mb-1 text-2xl font-semibold">{$t('dashboard.title')}</h1>
 <p class="mb-5 text-sm text-muted">{$t('dashboard.subtitle')}</p>
 
-<form class="mb-6 flex flex-wrap gap-2" onsubmit={add}>
+<form class="mb-6 grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(13rem,18rem)_auto_auto]" onsubmit={add}>
   <input
     class="surface min-w-0 flex-1 px-3 py-2"
     style="background: var(--bg-elevated); color: var(--text);"
@@ -282,6 +309,16 @@
     bind:value={url}
     required
   />
+  <select
+    class="surface px-3 py-2"
+    style="background: var(--bg-elevated); color: var(--text);"
+    bind:value={feedLanguage}
+    aria-label={$t('dashboard.feedLanguage')}
+  >
+    {#each FEED_LANGUAGES as lang (lang.code)}
+      <option value={lang.code}>{lang.flag} {lang.name}</option>
+    {/each}
+  </select>
   <button class="btn-accent px-4 py-2 font-medium disabled:opacity-60" disabled={busy}>
     {busy ? $t('dashboard.adding') : $t('dashboard.addFeed')}
   </button>
@@ -320,6 +357,23 @@
   />
   {#if importMsg}<span class="text-muted">{importMsg}</span>{/if}
 </div>
+
+{#if feeds.length > 0}
+  <section class="mb-6 grid gap-2 sm:grid-cols-3" aria-label={$t('dashboard.healthTitle')}>
+    <div class="surface px-4 py-3">
+      <p class="text-xs text-muted">{$t('dashboard.healthOk')}</p>
+      <p class="text-xl font-semibold" style="color: var(--accent);">{healthyFeeds}</p>
+    </div>
+    <div class="surface px-4 py-3">
+      <p class="text-xs text-muted">{$t('dashboard.healthPending')}</p>
+      <p class="text-xl font-semibold">{pendingFeeds}</p>
+    </div>
+    <div class="surface px-4 py-3">
+      <p class="text-xs text-muted">{$t('dashboard.healthError')}</p>
+      <p class="text-xl font-semibold" style={failedFeeds ? 'color: #ef4444;' : ''}>{failedFeeds}</p>
+    </div>
+  </section>
+{/if}
 
 {#if error}
   <p class="mb-4 text-sm" style="color: #ef4444;">{error}</p>
@@ -393,19 +447,29 @@
     {/each}
   </div>
 {:else if feeds.length === 0}
-  <p class="text-muted">{$t('dashboard.noFeeds')}</p>
+  <section class="surface empty-state">
+    <div>
+      <h2>{$t('dashboard.emptyTitle')}</h2>
+      <p class="mt-2">{$t('dashboard.noFeeds')}</p>
+    </div>
+  </section>
 {:else}
   <ul class="space-y-2">
     {#each feeds as feed (feed.id)}
+      {@const health = feedHealth(feed)}
       <li class="surface flex flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between">
         <div class="min-w-0 flex-1">
-          <p class="truncate font-medium">{feedLabel(feed)}</p>
+          <p class="truncate font-medium">
+            {feedLanguageFlag(feed.language)} {feedLabel(feed)}
+            <span class="health-pill" data-tone={health.tone}>{health.label}</span>
+          </p>
           <p class="truncate text-xs text-muted">{feed.url}</p>
+          <p class="truncate text-xs text-muted">{feedLanguageLabel(feed.language)}</p>
           <p class="mt-1 text-xs" class:text-muted={!feed.lastError} style={feed.lastError ? 'color: #ef4444;' : ''}>
             {feed.lastError
               ? `${$t('dashboard.feedError')}: ${feed.lastError}`
               : feed.lastFetchedAt
-                ? `${$t('dashboard.lastRefresh')}: ${new Date(feed.lastFetchedAt).toLocaleString()}`
+                ? `${$t('dashboard.lastRefresh')}: ${formatFeedDate(feed.lastFetchedAt)}`
                 : $t('dashboard.notRefreshed')}
           </p>
           <div class="mt-2 flex max-w-md items-center gap-2">

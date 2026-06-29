@@ -44,10 +44,26 @@ func (s *Store) ListArticlesFiltered(ctx context.Context, f ArticleFilter) ([]Ar
 		readExpr = "CASE WHEN EXISTS(SELECT 1 FROM article_reads ar WHERE ar.user_id = ? AND ar.article_id = a.id) THEN 1 ELSE 0 END"
 		args = append(args, f.UserID)
 	}
-	b.WriteString(`SELECT DISTINCT a.id, a.title, a.link, a.description, a.content, a.image_url,
+	b.WriteString(`WITH filtered AS (
+SELECT a.id, a.title, a.link, a.description, a.content, a.image_url,
   a.pub_date, a.guid, a.source_feed_id, a.created_at, `)
 	b.WriteString(readExpr)
-	b.WriteString(` AS read
+	b.WriteString(` AS read,
+  ROW_NUMBER() OVER (
+    PARTITION BY CASE
+      WHEN NULLIF(TRIM(COALESCE(a.title, '')), '') IS NOT NULL THEN 'title:' || LOWER(TRIM(a.title))
+      WHEN NULLIF(TRIM(COALESCE(a.link, '')), '') IS NOT NULL THEN 'link:' || LOWER(TRIM(a.link))
+      WHEN NULLIF(TRIM(COALESCE(a.guid, '')), '') IS NOT NULL THEN 'guid:' || LOWER(TRIM(a.guid))
+      ELSE a.id
+    END
+    ORDER BY a.pub_date DESC NULLS LAST, a.created_at DESC, a.id ASC
+  ) AS duplicate_rank`)
+	if f.UserID != "" {
+		b.WriteString(", LOWER(COALESCE(f.custom_title, f.title, f.url)) AS source_sort")
+	} else {
+		b.WriteString(", LOWER(COALESCE(sf.title, sf.url)) AS source_sort")
+	}
+	b.WriteString(`
 FROM articles a
 `)
 
@@ -90,20 +106,21 @@ FROM articles a
 		b.WriteString(strings.Join(where, "\n  AND "))
 		b.WriteByte('\n')
 	}
+	b.WriteString(")\n")
+	b.WriteString(`SELECT id, title, link, description, content, image_url, pub_date, guid, source_feed_id, created_at, read
+FROM filtered
+WHERE duplicate_rank = 1
+`)
 
 	switch f.Sort {
 	case "oldest":
-		b.WriteString("ORDER BY a.pub_date ASC NULLS LAST, a.created_at ASC\n")
+		b.WriteString("ORDER BY pub_date ASC NULLS LAST, created_at ASC\n")
 	case "title":
-		b.WriteString("ORDER BY LOWER(COALESCE(a.title, '')) ASC, a.pub_date DESC NULLS LAST\n")
+		b.WriteString("ORDER BY LOWER(COALESCE(title, '')) ASC, pub_date DESC NULLS LAST\n")
 	case "source":
-		if f.UserID != "" {
-			b.WriteString("ORDER BY LOWER(COALESCE(f.custom_title, f.title, f.url)) ASC, a.pub_date DESC NULLS LAST\n")
-		} else {
-			b.WriteString("ORDER BY LOWER(COALESCE(sf.title, sf.url)) ASC, a.pub_date DESC NULLS LAST\n")
-		}
+		b.WriteString("ORDER BY source_sort ASC, pub_date DESC NULLS LAST\n")
 	default:
-		b.WriteString("ORDER BY a.pub_date DESC NULLS LAST, a.created_at DESC\n")
+		b.WriteString("ORDER BY pub_date DESC NULLS LAST, created_at DESC\n")
 	}
 
 	b.WriteString("LIMIT ? OFFSET ?")

@@ -75,34 +75,6 @@ export function listArticles(
   return getJSON<Article[]>(`/api/articles?${q}`);
 }
 
-export type Story = {
-  key: string;
-  title: string;
-  count: number;
-  sources: string[];
-  articles: Article[];
-};
-
-export type DaySummary = {
-  date: string;
-  count: number;
-};
-
-export function getArticlesOverview(
-  opts: Parameters<typeof listArticles>[0] = {},
-): Promise<{ topStories: Story[]; days: DaySummary[] }> {
-  const q = new URLSearchParams();
-  if (opts.lang) q.set('lang', opts.lang);
-  if (opts.scope) q.set('scope', opts.scope);
-  if (opts.category) q.set('category', opts.category);
-  if (opts.smartFeed) q.set('smartFeed', opts.smartFeed);
-  if (opts.feedId) q.set('feed', opts.feedId);
-  if (opts.feeds?.length) q.set('feeds', opts.feeds.join(','));
-  if (opts.q) q.set('q', opts.q);
-  if (opts.unread) q.set('unread', '1');
-  return getJSON<{ topStories: Story[]; days: DaySummary[] }>(`/api/articles/overview?${q}`);
-}
-
 export function listFeeds(): Promise<Feed[]> {
   return getJSON<Feed[]>('/api/feeds');
 }
@@ -150,7 +122,13 @@ export type Statistics = {
   users: number;
   feeds: number;
   articles: number;
-  topFeeds: { title: string | null; custom_title?: string | null; url: string; articleCount: number }[];
+  topFeeds: {
+    title: string | null;
+    custom_title?: string | null;
+    url: string;
+    language: string;
+    articleCount: number;
+  }[];
 };
 
 export function getStatistics(): Promise<Statistics> {

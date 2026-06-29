@@ -3,9 +3,12 @@
     appearance,
     THEMES,
     DESIGNS,
+    ARTICLE_LAYOUTS,
     CARD_STYLES,
     DENSITIES,
     FONT_SCALES,
+    DATE_FORMATS,
+    TIME_FORMATS,
     BACKGROUNDS,
     FONT_FAMILIES,
     IMAGE_ASPECTS,
@@ -76,6 +79,12 @@
   ];
 </script>
 
+<svelte:head>
+  <title>Appearance | KoalaNews</title>
+  <meta name="description" content="Customize KoalaNews themes, layout, article cards, dates and reading density." />
+  <meta name="robots" content="noindex,follow" />
+</svelte:head>
+
 <div class="mb-6">
   <h1 class="text-2xl font-semibold">{$t('appearance.title')}</h1>
   <p class="mt-1 max-w-2xl text-sm text-muted">{$t('appearance.subtitle')}</p>
@@ -145,6 +154,32 @@
 
     <div class="grid gap-6 sm:grid-cols-2">
       <section>
+        <h2 class="mb-2 text-sm font-medium text-muted">{$t('appearance.articleLayout')}</h2>
+        <div class="flex flex-wrap gap-2">
+          {#each ARTICLE_LAYOUTS as opt}
+            <button
+              class="surface px-3 py-1.5 text-sm capitalize"
+              style={$a.articleLayout === opt ? 'outline: 2px solid var(--accent);' : ''}
+              onclick={() => a.patch({ articleLayout: opt })}>{$t(`appearance.layout.${opt}`)}</button
+            >
+          {/each}
+        </div>
+      </section>
+
+      <section>
+        <h2 class="mb-2 text-sm font-medium text-muted">{$t('appearance.timeFormat')}</h2>
+        <div class="flex flex-wrap gap-2">
+          {#each TIME_FORMATS as opt}
+            <button
+              class="surface px-3 py-1.5 text-sm"
+              style={$a.timeFormat === opt ? 'outline: 2px solid var(--accent);' : ''}
+              onclick={() => a.patch({ timeFormat: opt })}>{$t(`appearance.time.${opt}`)}</button
+            >
+          {/each}
+        </div>
+      </section>
+
+      <section>
         <h2 class="mb-2 text-sm font-medium text-muted">{$t('appearance.density')}</h2>
         <div class="flex flex-wrap gap-2">
           {#each DENSITIES as opt}
@@ -165,6 +200,19 @@
               class="surface px-3 py-1.5 text-sm capitalize"
               style={$a.fontScale === opt ? 'outline: 2px solid var(--accent);' : ''}
               onclick={() => a.patch({ fontScale: opt })}>{opt}</button
+            >
+          {/each}
+        </div>
+      </section>
+
+      <section>
+        <h2 class="mb-2 text-sm font-medium text-muted">{$t('appearance.dateFormat')}</h2>
+        <div class="flex flex-wrap gap-2">
+          {#each DATE_FORMATS as opt}
+            <button
+              class="surface px-3 py-1.5 text-sm capitalize"
+              style={$a.dateFormat === opt ? 'outline: 2px solid var(--accent);' : ''}
+              onclick={() => a.patch({ dateFormat: opt })}>{$t(`appearance.date.${opt}`)}</button
             >
           {/each}
         </div>
@@ -285,7 +333,7 @@
       style="background: var(--bg); border: 1px solid var(--border); overflow: hidden;"
       data-background={$a.background}
     >
-      <div class="flex flex-col" style="gap: var(--density-gap);">
+      <div class:article-grid={$a.articleLayout === 'grid'} class:article-list={$a.articleLayout === 'list'}>
         {#each samples as article (article.id)}
           <ArticleCard {article} />
         {/each}

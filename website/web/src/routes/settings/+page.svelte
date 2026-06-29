@@ -72,6 +72,12 @@
   }
 </script>
 
+<svelte:head>
+  <title>Settings | KoalaNews</title>
+  <meta name="description" content="Manage your KoalaNews account settings." />
+  <meta name="robots" content="noindex,nofollow" />
+</svelte:head>
+
 <div class="mb-6">
   <h1 class="text-2xl font-semibold">{$t('settings.title')}</h1>
   <p class="mt-1 max-w-2xl text-sm text-muted">{$t('settings.subtitle')}</p>

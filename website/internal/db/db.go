@@ -50,6 +50,9 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	alters := []string{
 		`ALTER TABLE feeds ADD COLUMN custom_title TEXT`,
 		`ALTER TABLE user_preferences ADD COLUMN show_read_more INTEGER NOT NULL DEFAULT 1`,
+		`ALTER TABLE user_preferences ADD COLUMN article_layout TEXT NOT NULL DEFAULT 'list'`,
+		`ALTER TABLE user_preferences ADD COLUMN date_format TEXT NOT NULL DEFAULT 'month'`,
+		`ALTER TABLE user_preferences ADD COLUMN time_format TEXT NOT NULL DEFAULT '24h'`,
 		`ALTER TABLE user_preferences ADD COLUMN background TEXT NOT NULL DEFAULT 'flat'`,
 		`ALTER TABLE user_preferences ADD COLUMN font_family TEXT NOT NULL DEFAULT 'system'`,
 		`ALTER TABLE user_preferences ADD COLUMN image_aspect TEXT NOT NULL DEFAULT 'wide'`,
