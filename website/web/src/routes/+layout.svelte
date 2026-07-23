@@ -88,7 +88,7 @@
     <div class="mx-auto flex flex-col gap-2 px-4 py-5 text-sm md:flex-row md:items-center md:justify-between" style="max-width: var(--maxw);">
       <p class="text-muted">KoalaNews - {$t('footer.openSource')}</p>
       <nav class="flex flex-wrap items-center gap-3" aria-label={$t('footer.legalNav')}>
-        <a class="link-accent" href="/imprint">{$t('footer.imprint')}</a>
+        <a class="link-accent" href="https://koalastuff.net/legal">{$t('footer.imprint')}</a>
         <a class="link-accent" href="/privacy">{$t('footer.privacy')}</a>
         <a class="link-accent" href="https://github.com/Shik3i/KoalaNews" target="_blank" rel="noreferrer">GitHub</a>
       </nav>
