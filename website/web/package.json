@@ -14,7 +14,7 @@
     "@emnapi/runtime": "1.11.3",
     "@emnapi/wasi-threads": "1.2.1",
     "@sveltejs/adapter-static": "^3.0.6",
-    "@sveltejs/kit": "^2.20.0",
+    "@sveltejs/kit": "^2.70.3",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@tailwindcss/vite": "^4.1.0",
     "svelte": "^5.20.0",
