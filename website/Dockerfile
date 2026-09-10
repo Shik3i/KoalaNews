@@ -9,7 +9,7 @@ COPY web/ ./
 RUN if [ -f package.json ]; then npm ci && npm run build; fi && mkdir -p build
 
 # --- go build ---
-FROM golang:1.26.5 AS build
+FROM golang:1.27.0 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
