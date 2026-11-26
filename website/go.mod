@@ -2,6 +2,8 @@ module github.com/koaladev/koalanews
 
 go 1.26.10
 
+toolchain go1.26.11
+
 require (
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/mmcdole/gofeed v1.5.0
@@ -16,7 +18,7 @@ require (
 	github.com/mmcdole/goxpp/v2 v2.0.0 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	modernc.org/libc v1.79.0 // indirect
